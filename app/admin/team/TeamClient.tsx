@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import { Plus, Pencil, Trash2, X, Upload, ImageOff, ArrowUp, ArrowDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { resizeImage } from '@/lib/resizeImage'
 
 type Member = {
   id: string
@@ -61,10 +62,10 @@ export default function TeamClient({ team: initial }: { team: Member[] }) {
   async function uploadAvatar(file: File): Promise<string | null> {
     if (!file.type.startsWith('image/')) { alert('กรุณาเลือกไฟล์รูปภาพ'); return null }
     setUploading(true)
+    const resized = await resizeImage(file, 'avatar')
     const supabase = createClient()
-    const ext = file.name.split('.').pop()
-    const path = `team/${Date.now()}.${ext}`
-    const { error } = await supabase.storage.from('media').upload(path, file, { upsert: true })
+    const path = `team/${Date.now()}.jpg`
+    const { error } = await supabase.storage.from('media').upload(path, resized, { upsert: true })
     setUploading(false)
     if (error) { alert('อัปโหลดไม่สำเร็จ: ' + error.message); return null }
     return supabase.storage.from('media').getPublicUrl(path).data.publicUrl

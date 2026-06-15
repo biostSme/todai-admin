@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import { Plus, Pencil, Trash2, X, Save, Upload, ImageOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { resizeImage } from '@/lib/resizeImage'
 
 type Person = { id: string; name_th: string; role_th?: string; company_th?: string; sector?: string; courses?: string[]; avatar_url?: string }
 type Company = { id: string; name: string; sector?: string; generation?: string; logo_url?: string }
@@ -27,10 +28,10 @@ export default function AlumniClient({ people: init, companies: initCo }: { peop
   async function uploadImg(file: File, folder: string): Promise<string | null> {
     if (!file.type.startsWith('image/')) { alert('กรุณาเลือกไฟล์รูปภาพ'); return null }
     setUploading(true)
+    const resized = await resizeImage(file, 'avatar')
     const supabase = createClient()
-    const ext = file.name.split('.').pop()
-    const path = `${folder}/${Date.now()}.${ext}`
-    const { error } = await supabase.storage.from('media').upload(path, file, { upsert: true })
+    const path = `${folder}/${Date.now()}.jpg`
+    const { error } = await supabase.storage.from('media').upload(path, resized, { upsert: true })
     if (error) { alert('อัปโหลดไม่สำเร็จ: ' + error.message); setUploading(false); return null }
     const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path)
     setUploading(false)

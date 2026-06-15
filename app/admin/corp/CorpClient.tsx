@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import { Plus, Pencil, Trash2, X, Save, Upload, ImageOff, ArrowUp, ArrowDown, PlusCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { resizeImage } from '@/lib/resizeImage'
 
 type Framework = { n: string; d_th: string; d_en: string }
 
@@ -85,10 +86,10 @@ export default function CorpClient({ courses: initial }: { courses: CorpCourse[]
   async function uploadCover(file: File): Promise<string | null> {
     if (!file.type.startsWith('image/')) { alert('กรุณาเลือกไฟล์รูปภาพ'); return null }
     setUploading(true)
+    const resized = await resizeImage(file, 'cover')
     const supabase = createClient()
-    const ext = file.name.split('.').pop()
-    const path = `corp/${Date.now()}.${ext}`
-    const { error } = await supabase.storage.from('media').upload(path, file, { upsert: true })
+    const path = `corp/${Date.now()}.jpg`
+    const { error } = await supabase.storage.from('media').upload(path, resized, { upsert: true })
     setUploading(false)
     if (error) { alert('อัปโหลดไม่สำเร็จ: ' + error.message); return null }
     return supabase.storage.from('media').getPublicUrl(path).data.publicUrl

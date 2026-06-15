@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import { Plus, Pencil, Trash2, X, Save, Upload, ImageOff, PlusCircle, GripVertical } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { resizeImage } from '@/lib/resizeImage'
 
 type Article = {
   id: string; title_th: string; category_th?: string; cover_url?: string
@@ -42,12 +43,11 @@ export default function ArticlesClient({ articles: initial }: { articles: Articl
 
   async function uploadImage(file: File) {
     if (!file.type.startsWith('image/')) return alert('กรุณาเลือกไฟล์รูปภาพ')
-    if (file.size > 2 * 1024 * 1024) return alert('ไฟล์ต้องไม่เกิน 2MB')
     setUploading(true)
+    const resized = await resizeImage(file, 'article')
     const supabase = createClient()
-    const ext = file.name.split('.').pop()
-    const path = `articles/${Date.now()}.${ext}`
-    const { error } = await supabase.storage.from('media').upload(path, file, { upsert: true })
+    const path = `articles/${Date.now()}.jpg`
+    const { error } = await supabase.storage.from('media').upload(path, resized, { upsert: true })
     if (error) { alert('อัปโหลดไม่สำเร็จ: ' + error.message); setUploading(false); return }
     const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path)
     setForm(p => ({ ...p, cover_url: publicUrl }))
