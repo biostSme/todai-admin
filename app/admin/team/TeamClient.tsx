@@ -37,6 +37,9 @@ function F({ label, children, className = '' }: { label: string; children: React
   )
 }
 
+const FEATURED_PATH = 'misc/team-featured.jpg'
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
+
 export default function TeamClient({ team: initial }: { team: Member[] }) {
   const [team, setTeam] = useState(initial)
   const [modal, setModal] = useState(false)
@@ -44,8 +47,22 @@ export default function TeamClient({ team: initial }: { team: Member[] }) {
   const [editing, setEditing] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [uploadingFeatured, setUploadingFeatured] = useState(false)
+  const [featuredUrl, setFeaturedUrl] = useState(`${SUPABASE_URL}/storage/v1/object/public/media/${FEATURED_PATH}?t=${Date.now()}`)
   const avatarRef = useRef<HTMLInputElement>(null)
+  const featuredRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+
+  async function uploadFeatured(file: File) {
+    if (!file.type.startsWith('image/')) { alert('กรุณาเลือกไฟล์รูปภาพ'); return }
+    setUploadingFeatured(true)
+    const resized = await resizeImage(file, 'cover')
+    const supabase = createClient()
+    const { error } = await supabase.storage.from('media').upload(FEATURED_PATH, resized, { upsert: true })
+    setUploadingFeatured(false)
+    if (error) { alert('อัปโหลดไม่สำเร็จ: ' + error.message); return }
+    setFeaturedUrl(`${SUPABASE_URL}/storage/v1/object/public/media/${FEATURED_PATH}?t=${Date.now()}`)
+  }
 
   function openNew() {
     setForm({ ...emptyForm, sort_order: team.length })
@@ -116,6 +133,25 @@ export default function TeamClient({ team: initial }: { team: Member[] }) {
         <button onClick={openNew} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white" style={{ background: 'var(--orange)' }}>
           <Plus size={13} /> เพิ่มสมาชิก
         </button>
+      </div>
+
+      {/* Featured image section */}
+      <div className="mx-6 mt-6 bg-white border border-gray-100 rounded-xl p-4">
+        <div className="text-xs font-medium text-gray-500 mb-3">รูปภาพ Featured (กล่อง NBM ในหน้าทีมงาน)</div>
+        <div className="flex items-center gap-4">
+          <div className="w-48 h-28 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-200">
+            <img src={featuredUrl} alt="featured" className="w-full h-full object-cover" onError={e => (e.currentTarget.style.display='none')} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <button onClick={() => featuredRef.current?.click()} disabled={uploadingFeatured}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+              <Upload size={13} /> {uploadingFeatured ? 'กำลังอัปโหลด...' : 'เปลี่ยนรูป'}
+            </button>
+            <span className="text-[10px] text-gray-400">แนะนำ 800×450px · อัปโหลดแล้วจะอัปเดตอัตโนมัติ</span>
+          </div>
+          <input ref={featuredRef} type="file" accept="image/*" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) uploadFeatured(f) }} />
+        </div>
       </div>
 
       <div className="p-6 flex flex-col gap-3">
