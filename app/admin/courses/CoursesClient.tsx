@@ -1,9 +1,8 @@
 'use client'
 import { useState, useRef } from 'react'
 import { Plus, Pencil, Trash2, X, Save, Upload, ImageOff, PlusCircle } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { resizeImage } from '@/lib/resizeImage'
+import { uploadImage } from '@/lib/uploadImage'
 
 type Module = { title: string; desc?: string; items: string[] }
 type Outcome = { label: string; title: string; icon_url?: string }
@@ -76,35 +75,29 @@ export default function CoursesClient({ courses: initial }: { courses: Course[] 
   }
 
   async function uploadFile(file: File, folder: string, key: string): Promise<string | null> {
-    if (!file.type.startsWith('image/')) { alert('กรุณาเลือกไฟล์รูปภาพ'); return null }
     setUploading(key)
-    const resized = await resizeImage(file, 'cover')
-    const supabase = createClient()
-    const path = `${folder}/${Date.now()}.jpg`
-    const { error } = await supabase.storage.from('media').upload(path, resized, { upsert: true })
+    const url = await uploadImage(file, folder, 'cover')
     setUploading(null)
-    if (error) { alert('อัปโหลดไม่สำเร็จ: ' + error.message); return null }
-    return supabase.storage.from('media').getPublicUrl(path).data.publicUrl
+    return url
   }
 
   async function save() {
     setSaving(true)
-    const supabase = createClient()
     const data = {
       ...form,
-      mode_th: form.mode_th ? form.mode_th.split(',').map(s => s.trim()) : [],
+      mode_th: form.mode_th ? form.mode_th.split(',').map((s:string) => s.trim()) : [],
       outcomes_detail: form.outcomes_detail.filter(o => o.title || o.icon_url),
       modules_th: form.modules_th.filter(m => m.title),
       system_5c: form.system_5c,
     }
-    if (editing) await supabase.from('courses').update(data).eq('id', editing)
-    else await supabase.from('courses').insert(data)
+    if (editing) await fetch(`/api/courses/${editing}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+    else await fetch('/api/courses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
     setSaving(false); setModal(false); router.refresh()
   }
 
   async function deleteCourse(id: string) {
     if (!confirm('ยืนยันการลบคอร์สนี้?')) return
-    await createClient().from('courses').delete().eq('id', id)
+    await fetch(`/api/courses/${id}`, { method: 'DELETE' })
     router.refresh()
   }
 
@@ -308,12 +301,14 @@ export default function CoursesClient({ courses: initial }: { courses: Course[] 
                         onChange={async e => {
                           const f = e.target.files?.[0]; if (!f) return
                           setUploading('brochure')
-                          const supabase = createClient()
-                          const path = `brochures/${Date.now()}.pdf`
-                          const { error } = await supabase.storage.from('media').upload(path, f, { upsert: true })
+                          const fd = new FormData()
+                          fd.append('file', f, `${Date.now()}.pdf`)
+                          fd.append('folder', 'brochures')
+                          fd.append('filename', `${Date.now()}.pdf`)
+                          const res = await fetch('/api/upload', { method: 'POST', body: fd })
                           setUploading(null)
-                          if (error) { alert('อัปโหลดไม่สำเร็จ: ' + error.message); return }
-                          const url = supabase.storage.from('media').getPublicUrl(path).data.publicUrl
+                          if (!res.ok) { alert('อัปโหลดไม่สำเร็จ'); return }
+                          const { url } = await res.json()
                           setForm(p => ({ ...p, brochure_url: url } as any))
                         }} />
                     </div>

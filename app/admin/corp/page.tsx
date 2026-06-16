@@ -1,10 +1,8 @@
 export const dynamic = 'force-dynamic'
-
-import { createClient } from '@/lib/supabase/server'
+import db from '@/lib/db'
 import CorpClient from './CorpClient'
 
-export default async function CorpPage() {
-  const supabase = await createClient()
-  const { data: courses } = await supabase.from('corp_courses').select('*').order('sort_order')
-  return <CorpClient courses={courses ?? []} />
+export default async function Page() {
+  const { rows: courses } = await db.query(`SELECT * FROM corp_courses ORDER BY sort_order`)
+  return <CorpClient courses={courses} />
 }

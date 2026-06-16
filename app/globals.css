@@ -18,3 +18,10 @@ body {
   color: #1a1a2e;
 }
 
+/* Placeholder สำหรับ contenteditable */
+[contenteditable]:empty:before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+}
+

@@ -1,10 +1,8 @@
 export const dynamic = 'force-dynamic'
-
-import { createClient } from '@/lib/supabase/server'
+import db from '@/lib/db'
 import ArticlesClient from './ArticlesClient'
 
-export default async function ArticlesPage() {
-  const supabase = await createClient()
-  const { data: articles } = await supabase.from('articles').select('*').order('sort_order')
-  return <ArticlesClient articles={articles ?? []} />
+export default async function Page() {
+  const { rows: articles } = await db.query(`SELECT * FROM articles ORDER BY sort_order`)
+  return <ArticlesClient articles={articles} />
 }

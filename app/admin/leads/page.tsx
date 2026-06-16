@@ -1,10 +1,8 @@
 export const dynamic = 'force-dynamic'
-
-import { createClient } from '@/lib/supabase/server'
+import db from '@/lib/db'
 import LeadsClient from './LeadsClient'
 
 export default async function LeadsPage() {
-  const supabase = await createClient()
-  const { data: leads } = await supabase.from('leads').select('*').order('created_at', { ascending: false })
-  return <LeadsClient leads={leads ?? []} />
+  const { rows: leads } = await db.query(`SELECT * FROM leads ORDER BY created_at DESC`)
+  return <LeadsClient leads={leads} />
 }

@@ -1,12 +1,10 @@
 export const dynamic = 'force-dynamic'
-
-import { createClient } from '@/lib/supabase/server'
+import db from '@/lib/db'
 import ContentClient from './ContentClient'
 
 export default async function ContentPage() {
-  const supabase = await createClient()
-  const { data } = await supabase.from('site_content').select('*')
+  const { rows } = await db.query(`SELECT key, value FROM content`)
   const content: Record<string, string> = {}
-  data?.forEach(row => { content[row.key] = row.value })
+  rows.forEach((r: any) => { content[r.key] = r.value })
   return <ContentClient content={content} />
 }

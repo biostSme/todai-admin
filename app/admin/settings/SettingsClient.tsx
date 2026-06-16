@@ -1,7 +1,6 @@
 'use client'
 import { useState } from 'react'
 import { Save } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 
 export default function SettingsClient({ settings: init }: { settings: Record<string, string> }) {
   const [form, setForm] = useState(init)
@@ -10,12 +9,7 @@ export default function SettingsClient({ settings: init }: { settings: Record<st
 
   async function save() {
     setSaving(true)
-    const supabase = createClient()
-    await Promise.all(
-      Object.entries(form).map(([key, value]) =>
-        supabase.from('site_settings').upsert({ key, value })
-      )
-    )
+    await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
     setSaving(false); setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }

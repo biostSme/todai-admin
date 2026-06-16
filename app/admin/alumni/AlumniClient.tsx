@@ -1,19 +1,21 @@
 'use client'
 import { useState, useRef } from 'react'
-import { Plus, Pencil, Trash2, X, Save, Upload, ImageOff } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { Plus, Pencil, Trash2, X, Save, Upload, ImageOff, Settings2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { resizeImage } from '@/lib/resizeImage'
+import { uploadImage } from '@/lib/uploadImage'
 
 type Person = { id: string; name_th: string; role_th?: string; company_th?: string; sector?: string; courses?: string[]; avatar_url?: string }
 type Company = { id: string; name: string; sector?: string; generation?: string; logo_url?: string }
 
-const emptyPerson = { name_th: '', name_en: '', role_th: '', role_en: '', company_th: '', company_en: '', sector: '', courses: '', avatar_url: '' }
+const emptyPerson = { name_th: '', name_en: '', role_th: '', role_en: '', company_th: '', company_en: '', sector: '', courses: [] as string[], avatar_url: '' }
 const emptyCompany = { name: '', sector: '', generation: '', logo_url: '' }
 
-const SECTORS = ['FOOD', 'FASHION', 'PERSON', 'HOME', 'PKG', 'ENER', 'COMM', 'TECH', 'HEALTH', 'OTHER']
-
-export default function AlumniClient({ people: init, companies: initCo }: { people: Person[], companies: Company[] }) {
+export default function AlumniClient({ people: init, companies: initCo, sectors: initSectors, courses: initCourses }: { people: Person[], companies: Company[], sectors: string[], courses: string[] }) {
+  const [sectors, setSectors] = useState(initSectors)
+  const [courses] = useState(initCourses)
+  const [sectorModal, setSectorModal] = useState(false)
+  const [newSector, setNewSector] = useState('')
+  const [sectorSaving, setSectorSaving] = useState(false)
   const [tab, setTab] = useState<'people' | 'companies'>('people')
   const [modal, setModal] = useState<null | 'person' | 'company'>(null)
   const [personForm, setPersonForm] = useState(emptyPerson)
@@ -25,45 +27,53 @@ export default function AlumniClient({ people: init, companies: initCo }: { peop
   const companyImgRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
+  async function addSector() {
+    const name = newSector.trim().toUpperCase()
+    if (!name || sectors.includes(name)) return
+    setSectorSaving(true)
+    await fetch('/api/sectors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
+    setSectors(prev => [...prev, name].sort())
+    setNewSector('')
+    setSectorSaving(false)
+  }
+
+  async function deleteSector(name: string) {
+    if (!confirm(`ลบหมวดหมู่ "${name}" ?`)) return
+    await fetch(`/api/sectors/${encodeURIComponent(name)}`, { method: 'DELETE' })
+    setSectors(prev => prev.filter(s => s !== name))
+  }
+
   async function uploadImg(file: File, folder: string): Promise<string | null> {
-    if (!file.type.startsWith('image/')) { alert('กรุณาเลือกไฟล์รูปภาพ'); return null }
     setUploading(true)
-    const resized = await resizeImage(file, 'avatar')
-    const supabase = createClient()
-    const path = `${folder}/${Date.now()}.jpg`
-    const { error } = await supabase.storage.from('media').upload(path, resized, { upsert: true })
-    if (error) { alert('อัปโหลดไม่สำเร็จ: ' + error.message); setUploading(false); return null }
-    const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path)
+    const url = await uploadImage(file, folder, 'avatar')
     setUploading(false)
-    return publicUrl
+    return url
   }
 
   async function savePerson() {
     setSaving(true)
-    const supabase = createClient()
-    const data = { ...personForm, courses: personForm.courses ? personForm.courses.split(',').map(s => s.trim()) : [] }
-    if (editing) await supabase.from('alumni').update(data).eq('id', editing)
-    else await supabase.from('alumni').insert(data)
+    const data = { ...personForm }
+    if (editing) await fetch(`/api/alumni/${editing}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+    else await fetch('/api/alumni', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
     setSaving(false); setModal(null); router.refresh()
   }
 
   async function saveCompany() {
     setSaving(true)
-    const supabase = createClient()
-    if (editing) await supabase.from('alumni_companies').update(companyForm).eq('id', editing)
-    else await supabase.from('alumni_companies').insert(companyForm)
+    if (editing) await fetch(`/api/alumni-companies/${editing}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(companyForm) })
+    else await fetch('/api/alumni-companies', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(companyForm) })
     setSaving(false); setModal(null); router.refresh()
   }
 
   async function deletePerson(id: string) {
     if (!confirm('ยืนยันการลบ?')) return
-    await createClient().from('alumni').delete().eq('id', id)
+    await fetch(`/api/alumni/${id}`, { method: 'DELETE' })
     router.refresh()
   }
 
   async function deleteCompany(id: string) {
     if (!confirm('ยืนยันการลบ?')) return
-    await createClient().from('alumni_companies').delete().eq('id', id)
+    await fetch(`/api/alumni-companies/${id}`, { method: 'DELETE' })
     router.refresh()
   }
 
@@ -71,12 +81,20 @@ export default function AlumniClient({ people: init, companies: initCo }: { peop
     <div>
       <div className="px-6 py-4 bg-white border-b border-gray-100 flex items-center justify-between">
         <h1 className="font-semibold text-gray-900">ทำเนียบศิษย์เก่า</h1>
-        <button
-          onClick={() => { if (tab === 'people') { setPersonForm(emptyPerson); setEditing(null); setModal('person') } else { setCompanyForm(emptyCompany); setEditing(null); setModal('company') } }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white" style={{ background: 'var(--orange)' }}
-        >
-          <Plus size={13} /> {tab === 'people' ? 'เพิ่มศิษย์เก่า' : 'เพิ่มบริษัท'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSectorModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 border border-gray-200 hover:bg-gray-50"
+          >
+            <Settings2 size={13} /> จัดการหมวดหมู่
+          </button>
+          <button
+            onClick={() => { if (tab === 'people') { setPersonForm(emptyPerson); setEditing(null); setModal('person') } else { setCompanyForm(emptyCompany); setEditing(null); setModal('company') } }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white" style={{ background: 'var(--orange)' }}
+          >
+            <Plus size={13} /> {tab === 'people' ? 'เพิ่มศิษย์เก่า' : 'เพิ่มบริษัท'}
+          </button>
+        </div>
       </div>
       <div className="p-6">
         <div className="flex gap-2 mb-4">
@@ -106,7 +124,7 @@ export default function AlumniClient({ people: init, companies: initCo }: { peop
                     <td className="px-4 py-2.5"><span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px]">{p.sector || '—'}</span></td>
                     <td className="px-4 py-2.5">
                       <div className="flex gap-1.5 justify-end">
-                        <button onClick={() => { setPersonForm({ ...emptyPerson, ...p, courses: p.courses?.join(', ') ?? '' }); setEditing(p.id); setModal('person') }} className="p-1 rounded border border-gray-200 text-gray-400 hover:bg-gray-50"><Pencil size={11} /></button>
+                        <button onClick={() => { setPersonForm({ ...emptyPerson, ...p, courses: p.courses ?? [] }); setEditing(p.id); setModal('person') }} className="p-1 rounded border border-gray-200 text-gray-400 hover:bg-gray-50"><Pencil size={11} /></button>
                         <button onClick={() => deletePerson(p.id)} className="p-1 rounded border border-gray-200 text-red-400 hover:bg-red-50"><Trash2 size={11} /></button>
                       </div>
                     </td>
@@ -147,6 +165,51 @@ export default function AlumniClient({ people: init, companies: initCo }: { peop
           </div>
         )}
       </div>
+
+      {/* Modal จัดการหมวดหมู่ */}
+      {sectorModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-sm mx-4">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="font-semibold text-gray-900">จัดการหมวดหมู่อุตสาหกรรม</h2>
+              <button onClick={() => setSectorModal(false)}><X size={16} className="text-gray-400" /></button>
+            </div>
+            <div className="p-6 flex flex-col gap-4">
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-orange-400 uppercase"
+                  placeholder="ชื่อหมวดหมู่ใหม่ เช่น RETAIL"
+                  value={newSector}
+                  onChange={e => setNewSector(e.target.value.toUpperCase())}
+                  onKeyDown={e => e.key === 'Enter' && addSector()}
+                />
+                <button
+                  onClick={addSector}
+                  disabled={sectorSaving || !newSector.trim()}
+                  className="px-3 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50 flex items-center gap-1"
+                  style={{ background: 'var(--orange)' }}
+                >
+                  <Plus size={13} /> เพิ่ม
+                </button>
+              </div>
+              <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
+                {sectors.map(s => (
+                  <div key={s} className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 group">
+                    <span className="text-sm font-medium text-gray-700">{s}</span>
+                    <button
+                      onClick={() => deleteSector(s)}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded text-red-400 hover:bg-red-50 transition-all"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+                {!sectors.length && <p className="text-sm text-gray-400 text-center py-4">ยังไม่มีหมวดหมู่</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Person */}
       {modal === 'person' && (
@@ -189,11 +252,34 @@ export default function AlumniClient({ people: init, companies: initCo }: { peop
                 <F label="Sector">
                   <select value={personForm.sector} onChange={e => setPersonForm(p => ({ ...p, sector: e.target.value }))}>
                     <option value="">เลือก Sector</option>
-                    {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+                    {sectors.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </F>
                 <F label="บริษัท (ไทย)" className="col-span-2"><input value={personForm.company_th} onChange={e => setPersonForm(p => ({ ...p, company_th: e.target.value }))} /></F>
-                <F label="หลักสูตรที่เรียน (คั่นด้วย ,)" className="col-span-2"><input value={personForm.courses} onChange={e => setPersonForm(p => ({ ...p, courses: e.target.value }))} placeholder="RE-THINK, G2G" /></F>
+                <div className="col-span-2 flex flex-col gap-1">
+                  <label className="text-xs text-gray-500 font-medium">หลักสูตรที่เรียน</label>
+                  {courses.length === 0
+                    ? <p className="text-xs text-gray-400 py-2">ยังไม่มีหลักสูตร — เพิ่มคอร์สในหน้าหลักสูตรก่อน</p>
+                    : <div className="flex flex-wrap gap-2 p-3 border border-gray-200 rounded-lg">
+                        {courses.map(c => (
+                          <label key={c} className="flex items-center gap-1.5 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={personForm.courses.includes(c)}
+                              onChange={e => setPersonForm(p => ({
+                                ...p,
+                                courses: e.target.checked
+                                  ? [...p.courses, c]
+                                  : p.courses.filter(x => x !== c)
+                              }))}
+                              className="accent-orange-500"
+                            />
+                            <span className="text-xs text-gray-700">{c}</span>
+                          </label>
+                        ))}
+                      </div>
+                  }
+                </div>
               </div>
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
@@ -244,7 +330,7 @@ export default function AlumniClient({ people: init, companies: initCo }: { peop
               <F label="Sector">
                 <select value={companyForm.sector} onChange={e => setCompanyForm(p => ({ ...p, sector: e.target.value }))}>
                   <option value="">เลือก Sector</option>
-                  {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+                  {sectors.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </F>
               <F label="รุ่น"><input value={companyForm.generation} onChange={e => setCompanyForm(p => ({ ...p, generation: e.target.value }))} placeholder="G2G #10" /></F>

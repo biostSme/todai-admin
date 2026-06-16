@@ -1,9 +1,8 @@
 'use client'
 import { useState, useRef } from 'react'
 import { Plus, Pencil, Trash2, X, Save, Upload, ImageOff, ArrowUp, ArrowDown, PlusCircle } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { resizeImage } from '@/lib/resizeImage'
+import { uploadImage } from '@/lib/uploadImage'
 
 type Framework = { n: string; d_th: string; d_en: string }
 
@@ -84,37 +83,28 @@ export default function CorpClient({ courses: initial }: { courses: CorpCourse[]
   }
 
   async function uploadCover(file: File): Promise<string | null> {
-    if (!file.type.startsWith('image/')) { alert('กรุณาเลือกไฟล์รูปภาพ'); return null }
     setUploading(true)
-    const resized = await resizeImage(file, 'cover')
-    const supabase = createClient()
-    const path = `corp/${Date.now()}.jpg`
-    const { error } = await supabase.storage.from('media').upload(path, resized, { upsert: true })
+    const url = await uploadImage(file, 'corp', 'cover')
     setUploading(false)
-    if (error) { alert('อัปโหลดไม่สำเร็จ: ' + error.message); return null }
-    return supabase.storage.from('media').getPublicUrl(path).data.publicUrl
+    return url
   }
 
   async function save() {
     if (!form.id || !form.name_th) { alert('กรุณาใส่ ID และชื่อหลักสูตร'); return }
     setSaving(true)
-    const supabase = createClient()
     const data = {
       ...form,
-      frameworks: form.frameworks.filter(f => f.n),
-      topics: form.topics.filter(t => t.trim()),
+      frameworks: form.frameworks.filter((f:any) => f.n),
+      topics: form.topics.filter((t:string) => t.trim()),
     }
-    if (editing) {
-      await supabase.from('corp_courses').update(data).eq('id', editing)
-    } else {
-      await supabase.from('corp_courses').insert(data)
-    }
+    if (editing) await fetch(`/api/corp/${editing}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+    else await fetch('/api/corp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
     setSaving(false); setModal(false); router.refresh()
   }
 
   async function deleteCourse(id: string) {
     if (!confirm('ยืนยันการลบหลักสูตรนี้?')) return
-    await createClient().from('corp_courses').delete().eq('id', id)
+    await fetch(`/api/corp/${id}`, { method: 'DELETE' })
     setCourses(c => c.filter(x => x.id !== id))
   }
 
@@ -125,10 +115,9 @@ export default function CorpClient({ courses: initial }: { courses: CorpCourse[]
     const swapIdx = dir === 'up' ? idx - 1 : idx + 1
     const updated = [...courses]
     ;[updated[idx], updated[swapIdx]] = [updated[swapIdx], updated[idx]]
-    const supabase = createClient()
     await Promise.all([
-      supabase.from('corp_courses').update({ sort_order: swapIdx }).eq('id', updated[swapIdx].id),
-      supabase.from('corp_courses').update({ sort_order: idx }).eq('id', updated[idx].id),
+      fetch(`/api/corp/${updated[swapIdx].id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...updated[swapIdx], sort_order: swapIdx }) }),
+      fetch(`/api/corp/${updated[idx].id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...updated[idx], sort_order: idx }) }),
     ])
     setCourses(updated.map((c, i) => ({ ...c, sort_order: i })))
   }

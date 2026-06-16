@@ -1,10 +1,8 @@
 export const dynamic = 'force-dynamic'
-
-import { createClient } from '@/lib/supabase/server'
+import db from '@/lib/db'
 import TeamClient from './TeamClient'
 
 export default async function TeamPage() {
-  const supabase = await createClient()
-  const { data: team } = await supabase.from('team').select('*').order('sort_order')
-  return <TeamClient team={team ?? []} />
+  const { rows: team } = await db.query(`SELECT * FROM team ORDER BY sort_order`)
+  return <TeamClient team={team} />
 }

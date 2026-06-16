@@ -1,9 +1,76 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Plus, Pencil, Trash2, X, Save, Upload, ImageOff, PlusCircle, GripVertical } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { resizeImage } from '@/lib/resizeImage'
+import { uploadImage as doUpload } from '@/lib/uploadImage'
+
+// Rich text paragraph component
+function RichPara({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (ref.current && ref.current.innerHTML !== value) {
+      ref.current.innerHTML = value || ''
+    }
+  }, []) // ตั้งค่าเริ่มต้นครั้งเดียว
+
+  const exec = useCallback((cmd: string, arg?: string) => {
+    ref.current?.focus()
+    document.execCommand(cmd, false, arg)
+    if (ref.current) onChange(ref.current.innerHTML)
+  }, [onChange])
+
+  return (
+    <div className="flex-1 border border-gray-200 rounded-lg overflow-hidden focus-within:border-orange-400 transition-colors">
+      {/* Toolbar */}
+      <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-gray-100 bg-gray-50">
+        <button
+          type="button"
+          onMouseDown={e => { e.preventDefault(); exec('bold') }}
+          className="p-1.5 rounded hover:bg-gray-200 text-gray-600 transition-colors font-bold text-xs"
+          title="ตัวหนา (Ctrl+B)"
+        >
+          B
+        </button>
+        <div className="w-px h-4 bg-gray-200 mx-1" />
+        <select
+          onMouseDown={e => e.stopPropagation()}
+          onChange={e => { if (e.target.value) { exec('fontSize', e.target.value); e.target.value = '' } }}
+          defaultValue=""
+          className="text-xs border border-gray-200 rounded px-1.5 py-1 text-gray-600 bg-white focus:outline-none focus:border-orange-400 cursor-pointer"
+          title="ขนาดตัวอักษร"
+        >
+          <option value="" disabled>ขนาด</option>
+          <option value="1">เล็กมาก</option>
+          <option value="2">เล็ก</option>
+          <option value="3">ปกติ</option>
+          <option value="4">ใหญ่</option>
+          <option value="5">ใหญ่มาก</option>
+          <option value="6">ใหญ่พิเศษ</option>
+          <option value="7">ใหญ่สุด</option>
+        </select>
+        <button
+          type="button"
+          onMouseDown={e => { e.preventDefault(); exec('removeFormat') }}
+          className="p-1.5 rounded hover:bg-gray-200 text-gray-400 transition-colors text-[10px] leading-none ml-auto"
+          title="ล้างการจัดรูปแบบ"
+        >
+          ✕ format
+        </button>
+      </div>
+      {/* Editable area */}
+      <div
+        ref={ref}
+        contentEditable
+        suppressContentEditableWarning
+        onInput={() => { if (ref.current) onChange(ref.current.innerHTML) }}
+        className="min-h-[60px] px-3 py-2 text-sm text-gray-800 focus:outline-none"
+        data-placeholder={placeholder}
+        style={{ minHeight: 60 }}
+      />
+    </div>
+  )
+}
 
 type Article = {
   id: string; title_th: string; category_th?: string; cover_url?: string
@@ -37,41 +104,31 @@ export default function ArticlesClient({ articles: initial }: { articles: Articl
 
   function openNew() { setForm(emptyForm); setEditing(null); setModal(true) }
   function openEdit(a: Article) {
-    setForm({ ...emptyForm, ...a, body_th: (a as any).body_th ?? [''], body_en: (a as any).body_en ?? [''] })
+    setForm({ ...emptyForm, ...a, category_th: (a as any).category_th ?? 'วิธีคิด', category_en: (a as any).category_en ?? 'Mindset', body_th: (a as any).body_th ?? [''], body_en: (a as any).body_en ?? [''] })
     setEditing(a.id); setModal(true)
   }
 
   async function uploadImage(file: File) {
-    if (!file.type.startsWith('image/')) return alert('กรุณาเลือกไฟล์รูปภาพ')
     setUploading(true)
-    const resized = await resizeImage(file, 'article')
-    const supabase = createClient()
-    const path = `articles/${Date.now()}.jpg`
-    const { error } = await supabase.storage.from('media').upload(path, resized, { upsert: true })
-    if (error) { alert('อัปโหลดไม่สำเร็จ: ' + error.message); setUploading(false); return }
-    const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path)
-    setForm(p => ({ ...p, cover_url: publicUrl }))
+    const url = await doUpload(file, 'articles', 'article')
+    if (url) setForm(p => ({ ...p, cover_url: url }))
     setUploading(false)
   }
 
   async function save(status: string) {
     setSaving(true)
-    const supabase = createClient()
-    const data = {
-      ...form, status,
-      published_at: status === 'published' ? new Date().toISOString() : null,
-    }
+    const data = { ...form, status }
     if (editing) {
-      await supabase.from('articles').update(data).eq('id', editing)
+      await fetch(`/api/articles/${editing}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
     } else {
-      await supabase.from('articles').insert(data)
+      await fetch('/api/articles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
     }
     setSaving(false); setModal(false); router.refresh()
   }
 
   async function deleteArticle(id: string) {
     if (!confirm('ยืนยันการลบบทความนี้?')) return
-    await createClient().from('articles').delete().eq('id', id)
+    await fetch(`/api/articles/${id}`, { method: 'DELETE' })
     router.refresh()
   }
 
@@ -203,14 +260,13 @@ export default function ArticlesClient({ articles: initial }: { articles: Articl
                 <div className="flex flex-col gap-2">
                   {form.body_th.map((para, i) => (
                     <div key={i} className="flex gap-2 items-start">
-                      <GripVertical size={14} className="text-gray-300 mt-2.5 flex-shrink-0" />
-                      <textarea
-                        rows={2} value={para}
-                        onChange={e => setBodyPara('body_th', i, e.target.value)}
-                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-orange-400 resize-none"
+                      <GripVertical size={14} className="text-gray-300 mt-10 flex-shrink-0" />
+                      <RichPara
+                        value={para}
+                        onChange={v => setBodyPara('body_th', i, v)}
                         placeholder={`ย่อหน้าที่ ${i + 1}`}
                       />
-                      <button onClick={() => removePara('body_th', i)} className="p-1.5 rounded-lg border border-gray-200 text-red-400 hover:bg-red-50 mt-1 flex-shrink-0"><Trash2 size={12} /></button>
+                      <button onClick={() => removePara('body_th', i)} className="p-1.5 rounded-lg border border-gray-200 text-red-400 hover:bg-red-50 mt-10 flex-shrink-0"><Trash2 size={12} /></button>
                     </div>
                   ))}
                   <button onClick={() => addPara('body_th')} className="flex items-center gap-1.5 text-xs mt-1 self-start" style={{ color: 'var(--orange)' }}>

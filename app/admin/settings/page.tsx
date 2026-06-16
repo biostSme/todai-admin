@@ -1,12 +1,10 @@
 export const dynamic = 'force-dynamic'
-
-import { createClient } from '@/lib/supabase/server'
+import db from '@/lib/db'
 import SettingsClient from './SettingsClient'
 
 export default async function SettingsPage() {
-  const supabase = await createClient()
-  const { data } = await supabase.from('site_settings').select('*')
+  const { rows } = await db.query(`SELECT key, value FROM settings`)
   const settings: Record<string, string> = {}
-  data?.forEach(row => { settings[row.key] = row.value })
+  rows.forEach((r: any) => { settings[r.key] = r.value })
   return <SettingsClient settings={settings} />
 }

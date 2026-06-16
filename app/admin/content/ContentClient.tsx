@@ -1,7 +1,6 @@
 'use client'
 import { useState } from 'react'
 import { Save } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 
 const CONTENT_FIELDS = [
   { section: 'หน้าแรก', fields: [
@@ -39,12 +38,7 @@ export default function ContentClient({ content: init }: { content: Record<strin
 
   async function save() {
     setSaving(true)
-    const supabase = createClient()
-    await Promise.all(
-      Object.entries(form).map(([key, value]) =>
-        supabase.from('site_content').upsert({ key, value })
-      )
-    )
+    await fetch('/api/content', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
     setSaving(false); setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }

@@ -1,9 +1,8 @@
 'use client'
 import { useState, useRef } from 'react'
 import { Plus, Pencil, Trash2, X, Upload, ImageOff, ArrowUp, ArrowDown } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { resizeImage } from '@/lib/resizeImage'
+import { uploadImage } from '@/lib/uploadImage'
 
 type Member = {
   id: string
@@ -38,7 +37,6 @@ function F({ label, children, className = '' }: { label: string; children: React
 }
 
 const FEATURED_PATH = 'misc/team-featured.jpg'
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
 export default function TeamClient({ team: initial }: { team: Member[] }) {
   const [team, setTeam] = useState(initial)
@@ -48,20 +46,16 @@ export default function TeamClient({ team: initial }: { team: Member[] }) {
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadingFeatured, setUploadingFeatured] = useState(false)
-  const [featuredUrl, setFeaturedUrl] = useState(`${SUPABASE_URL}/storage/v1/object/public/media/${FEATURED_PATH}?t=${Date.now()}`)
+  const [featuredUrl, setFeaturedUrl] = useState(`/uploads/${FEATURED_PATH}?t=${Date.now()}`)
   const avatarRef = useRef<HTMLInputElement>(null)
   const featuredRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
   async function uploadFeatured(file: File) {
-    if (!file.type.startsWith('image/')) { alert('กรุณาเลือกไฟล์รูปภาพ'); return }
     setUploadingFeatured(true)
-    const resized = await resizeImage(file, 'cover')
-    const supabase = createClient()
-    const { error } = await supabase.storage.from('media').upload(FEATURED_PATH, resized, { upsert: true })
+    const url = await uploadImage(file, 'misc', 'cover', 'team-featured.jpg')
     setUploadingFeatured(false)
-    if (error) { alert('อัปโหลดไม่สำเร็จ: ' + error.message); return }
-    setFeaturedUrl(`${SUPABASE_URL}/storage/v1/object/public/media/${FEATURED_PATH}?t=${Date.now()}`)
+    if (url) setFeaturedUrl(`${url}?t=${Date.now()}`)
   }
 
   function openNew() {
@@ -77,34 +71,26 @@ export default function TeamClient({ team: initial }: { team: Member[] }) {
   }
 
   async function uploadAvatar(file: File): Promise<string | null> {
-    if (!file.type.startsWith('image/')) { alert('กรุณาเลือกไฟล์รูปภาพ'); return null }
     setUploading(true)
-    const resized = await resizeImage(file, 'avatar')
-    const supabase = createClient()
-    const path = `team/${Date.now()}.jpg`
-    const { error } = await supabase.storage.from('media').upload(path, resized, { upsert: true })
+    const url = await uploadImage(file, 'team', 'avatar')
     setUploading(false)
-    if (error) { alert('อัปโหลดไม่สำเร็จ: ' + error.message); return null }
-    return supabase.storage.from('media').getPublicUrl(path).data.publicUrl
+    return url
   }
 
   async function save() {
     if (!form.name_th) { alert('กรุณาใส่ชื่อ'); return }
     setSaving(true)
-    const supabase = createClient()
     if (editing) {
-      await supabase.from('team').update(form).eq('id', editing)
+      await fetch(`/api/team/${editing}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
     } else {
-      await supabase.from('team').insert(form)
+      await fetch('/api/team', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
     }
-    setSaving(false)
-    setModal(false)
-    router.refresh()
+    setSaving(false); setModal(false); router.refresh()
   }
 
   async function deleteMember(id: string) {
     if (!confirm('ยืนยันการลบสมาชิกนี้?')) return
-    await createClient().from('team').delete().eq('id', id)
+    await fetch(`/api/team/${id}`, { method: 'DELETE' })
     setTeam(t => t.filter(m => m.id !== id))
   }
 
@@ -115,10 +101,9 @@ export default function TeamClient({ team: initial }: { team: Member[] }) {
     const swapIdx = dir === 'up' ? idx - 1 : idx + 1
     const newTeam = [...team]
     ;[newTeam[idx], newTeam[swapIdx]] = [newTeam[swapIdx], newTeam[idx]]
-    const supabase = createClient()
     await Promise.all([
-      supabase.from('team').update({ sort_order: swapIdx }).eq('id', newTeam[swapIdx].id),
-      supabase.from('team').update({ sort_order: idx }).eq('id', newTeam[idx].id),
+      fetch(`/api/team/${newTeam[swapIdx].id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...newTeam[swapIdx], sort_order: swapIdx }) }),
+      fetch(`/api/team/${newTeam[idx].id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...newTeam[idx], sort_order: idx }) }),
     ])
     setTeam(newTeam.map((m, i) => ({ ...m, sort_order: i })))
   }

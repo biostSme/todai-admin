@@ -1,0 +1,13 @@
+import { NextRequest, NextResponse } from 'next/server'
+import db from '@/lib/db'
+
+export async function GET() {
+  const { rows } = await db.query(`SELECT * FROM sectors ORDER BY name`)
+  return NextResponse.json(rows)
+}
+
+export async function POST(req: NextRequest) {
+  const { name } = await req.json()
+  await db.query(`INSERT INTO sectors (name) VALUES ($1) ON CONFLICT (name) DO NOTHING`, [name])
+  return NextResponse.json({ ok: true })
+}
