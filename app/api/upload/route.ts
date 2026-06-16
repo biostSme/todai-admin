@@ -17,12 +17,16 @@ export async function POST(req: NextRequest) {
   const bytes = await file.arrayBuffer()
   const buffer = Buffer.from(bytes)
 
-  const result = await new Promise<any>((resolve, reject) => {
-    cloudinary.uploader.upload_stream(
-      { folder: `todai/${folder}`, resource_type: 'auto' },
-      (err, res) => err ? reject(err) : resolve(res)
-    ).end(buffer)
-  })
-
-  return NextResponse.json({ url: result.secure_url })
+  try {
+    const result = await new Promise<any>((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        { folder: `todai/${folder}`, resource_type: 'auto' },
+        (err, res) => err ? reject(err) : resolve(res)
+      ).end(buffer)
+    })
+    return NextResponse.json({ url: result.secure_url })
+  } catch (err: any) {
+    console.error('Cloudinary upload error:', err)
+    return NextResponse.json({ error: err?.message || 'Upload failed' }, { status: 500 })
+  }
 }
