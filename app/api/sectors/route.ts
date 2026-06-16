@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 
 export async function GET() {
-  const { rows } = await db.query(`SELECT * FROM sectors ORDER BY name`)
-  return NextResponse.json(rows)
+  const { rows } = await db.query(`SELECT name FROM sectors ORDER BY name`)
+  return NextResponse.json(rows.map(r => r.name))
 }
 
 export async function POST(req: NextRequest) {
