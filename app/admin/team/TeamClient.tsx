@@ -55,7 +55,10 @@ export default function TeamClient({ team: initial }: { team: Member[] }) {
     setUploadingFeatured(true)
     const url = await uploadImage(file, 'misc', 'cover', 'team-featured.jpg')
     setUploadingFeatured(false)
-    if (url) setFeaturedUrl(`${url}?t=${Date.now()}`)
+    if (url) {
+      setFeaturedUrl(`${url}?t=${Date.now()}`)
+      await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ team_featured_url: url }) })
+    }
   }
 
   function openNew() {
@@ -222,11 +225,11 @@ export default function TeamClient({ team: initial }: { team: Member[] }) {
                 <F label="ตำแหน่ง (อังกฤษ)">
                   <input value={form.role_en} onChange={e => setForm(p => ({ ...p, role_en: e.target.value }))} placeholder="Strategy Consultant" />
                 </F>
-                <F label="Bio (ไทย)" className="col-span-2">
-                  <textarea rows={3} value={form.bio_th} onChange={e => setForm(p => ({ ...p, bio_th: e.target.value }))} placeholder="ประวัติย่อ และความเชี่ยวชาญ..." />
+                <F label="ความเชี่ยวชาญ (ไทย) — 1 บรรทัด = 1 ข้อ" className="col-span-2">
+                  <textarea rows={4} value={form.bio_th} onChange={e => setForm(p => ({ ...p, bio_th: e.target.value }))} placeholder={"กลยุทธ์ธุรกิจ\nการตลาดดิจิทัล\nการบริหารองค์กร"} />
                 </F>
-                <F label="Bio (อังกฤษ)" className="col-span-2">
-                  <textarea rows={3} value={form.bio_en} onChange={e => setForm(p => ({ ...p, bio_en: e.target.value }))} placeholder="Brief bio and expertise..." />
+                <F label="ความเชี่ยวชาญ (อังกฤษ) — 1 บรรทัด = 1 ข้อ" className="col-span-2">
+                  <textarea rows={4} value={form.bio_en} onChange={e => setForm(p => ({ ...p, bio_en: e.target.value }))} placeholder={"Business Strategy\nDigital Marketing\nOrganization Management"} />
                 </F>
                 <F label="ลำดับการแสดงผล">
                   <input type="number" value={form.sort_order} onChange={e => setForm(p => ({ ...p, sort_order: +e.target.value }))} />
