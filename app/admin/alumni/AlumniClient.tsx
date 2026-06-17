@@ -23,6 +23,7 @@ export default function AlumniClient({ people: init, companies: initCo, sectors:
   const [editing, setEditing] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [customCourseInput, setCustomCourseInput] = useState('')
   const personImgRef = useRef<HTMLInputElement>(null)
   const companyImgRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -50,12 +51,19 @@ export default function AlumniClient({ people: init, companies: initCo, sectors:
     return url
   }
 
+  function addCustomCourse() {
+    const name = customCourseInput.trim()
+    if (!name || personForm.courses.includes(name)) return
+    setPersonForm(p => ({ ...p, courses: [...p.courses, name] }))
+    setCustomCourseInput('')
+  }
+
   async function savePerson() {
     setSaving(true)
     const data = { ...personForm }
     if (editing) await fetch(`/api/alumni/${editing}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
     else await fetch('/api/alumni', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
-    setSaving(false); setModal(null); router.refresh()
+    setSaving(false); setModal(null); setCustomCourseInput(''); router.refresh()
   }
 
   async function saveCompany() {
@@ -256,29 +264,51 @@ export default function AlumniClient({ people: init, companies: initCo, sectors:
                   </select>
                 </F>
                 <F label="บริษัท (ไทย)" className="col-span-2"><input value={personForm.company_th} onChange={e => setPersonForm(p => ({ ...p, company_th: e.target.value }))} /></F>
-                <div className="col-span-2 flex flex-col gap-1">
+                <div className="col-span-2 flex flex-col gap-2">
                   <label className="text-xs text-gray-500 font-medium">หลักสูตรที่เรียน</label>
-                  {courses.length === 0
-                    ? <p className="text-xs text-gray-400 py-2">ยังไม่มีหลักสูตร — เพิ่มคอร์สในหน้าหลักสูตรก่อน</p>
-                    : <div className="flex flex-wrap gap-2 p-3 border border-gray-200 rounded-lg">
-                        {courses.map(c => (
-                          <label key={c} className="flex items-center gap-1.5 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={personForm.courses.includes(c)}
-                              onChange={e => setPersonForm(p => ({
-                                ...p,
-                                courses: e.target.checked
-                                  ? [...p.courses, c]
-                                  : p.courses.filter(x => x !== c)
-                              }))}
-                              className="accent-orange-500"
-                            />
-                            <span className="text-xs text-gray-700">{c}</span>
-                          </label>
-                        ))}
-                      </div>
-                  }
+                  {courses.length > 0 && (
+                    <div className="flex flex-wrap gap-2 p-3 border border-gray-200 rounded-lg">
+                      {courses.map(c => (
+                        <label key={c} className="flex items-center gap-1.5 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={personForm.courses.includes(c)}
+                            onChange={e => setPersonForm(p => ({
+                              ...p,
+                              courses: e.target.checked
+                                ? [...p.courses, c]
+                                : p.courses.filter(x => x !== c)
+                            }))}
+                            className="accent-orange-500"
+                          />
+                          <span className="text-xs text-gray-700">{c}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {personForm.courses.filter(c => !courses.includes(c)).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {personForm.courses.filter(c => !courses.includes(c)).map(c => (
+                        <span key={c} className="flex items-center gap-1 px-2 py-1 bg-orange-50 text-orange-700 border border-orange-200 rounded-md text-xs">
+                          {c}
+                          <button type="button" onClick={() => setPersonForm(p => ({ ...p, courses: p.courses.filter(x => x !== c) }))} className="ml-0.5 hover:text-red-500 font-bold">×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <input
+                      className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-orange-400"
+                      placeholder="พิมพ์ชื่อหลักสูตรเก่า แล้วกด เพิ่ม"
+                      value={customCourseInput}
+                      onChange={e => setCustomCourseInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomCourse() } }}
+                    />
+                    <button type="button" onClick={addCustomCourse} disabled={!customCourseInput.trim()}
+                      className="px-3 py-2 text-xs font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 whitespace-nowrap">
+                      + เพิ่ม
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
