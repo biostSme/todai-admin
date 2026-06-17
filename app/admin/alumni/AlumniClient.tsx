@@ -4,11 +4,11 @@ import { Plus, Pencil, Trash2, X, Save, Upload, ImageOff, Settings2 } from 'luci
 import { useRouter } from 'next/navigation'
 import { uploadImage } from '@/lib/uploadImage'
 
-type Person = { id: string; name_th: string; role_th?: string; company_th?: string; sector?: string; courses?: string[]; avatar_url?: string }
-type Company = { id: string; name: string; sector?: string; generation?: string; logo_url?: string }
+type Person = { id: string; name_th: string; role_th?: string; company_th?: string; sector?: string; gen?: string; courses?: string[]; avatar_url?: string }
+type Company = { id: string; name: string; sector?: string; gen?: string; logo_url?: string }
 
-const emptyPerson = { name_th: '', name_en: '', role_th: '', role_en: '', company_th: '', company_en: '', sector: '', courses: [] as string[], avatar_url: '' }
-const emptyCompany = { name: '', sector: '', generation: '', logo_url: '' }
+const emptyPerson = { name_th: '', name_en: '', role_th: '', role_en: '', company_th: '', company_en: '', sector: '', gen: '', courses: [] as string[], avatar_url: '' }
+const emptyCompany = { name: '', sector: '', gen: '', logo_url: '' }
 
 export default function AlumniClient({ people: init, companies: initCo, sectors: initSectors, courses: initCourses }: { people: Person[], companies: Company[], sectors: string[], courses: string[] }) {
   const [sectors, setSectors] = useState(initSectors)
@@ -158,7 +158,7 @@ export default function AlumniClient({ people: init, companies: initCo, sectors:
                   <tr key={c.id} className="border-t border-gray-50 hover:bg-gray-50">
                     <td className="px-4 py-2.5 font-medium text-gray-800">{c.name}</td>
                     <td className="px-4 py-2.5"><span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px]">{c.sector || '—'}</span></td>
-                    <td className="px-4 py-2.5 text-gray-500">{c.generation || '—'}</td>
+                    <td className="px-4 py-2.5 text-gray-500">{c.gen || '—'}</td>
                     <td className="px-4 py-2.5">
                       <div className="flex gap-1.5 justify-end">
                         <button onClick={() => { setCompanyForm({ ...emptyCompany, ...c }); setEditing(c.id); setModal('company') }} className="p-1 rounded border border-gray-200 text-gray-400 hover:bg-gray-50"><Pencil size={11} /></button>
@@ -263,6 +263,7 @@ export default function AlumniClient({ people: init, companies: initCo, sectors:
                     {sectors.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </F>
+                <F label="รุ่น (Gen)" className="col-span-2"><input value={personForm.gen} onChange={e => setPersonForm(p => ({ ...p, gen: e.target.value }))} placeholder="G2G #11" /></F>
                 <F label="บริษัท (ไทย)" className="col-span-2"><input value={personForm.company_th} onChange={e => setPersonForm(p => ({ ...p, company_th: e.target.value }))} /></F>
                 <div className="col-span-2 flex flex-col gap-2">
                   <label className="text-xs text-gray-500 font-medium">หลักสูตรที่เรียน</label>
@@ -363,7 +364,7 @@ export default function AlumniClient({ people: init, companies: initCo, sectors:
                   {sectors.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </F>
-              <F label="รุ่น"><input value={companyForm.generation} onChange={e => setCompanyForm(p => ({ ...p, generation: e.target.value }))} placeholder="G2G #10" /></F>
+              <F label="รุ่น"><input value={companyForm.gen} onChange={e => setCompanyForm(p => ({ ...p, gen: e.target.value }))} placeholder="G2G #10" /></F>
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
               <button onClick={() => setModal(null)} className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600">ยกเลิก</button>
