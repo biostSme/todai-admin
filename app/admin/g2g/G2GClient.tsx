@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Upload, Plus, Trash2, Edit2, Save, X, Download, ExternalLink, Check } from 'lucide-react'
+import { Upload, Plus, Trash2, Edit2, Save, X, Download, ExternalLink, Check, CreditCard } from 'lucide-react'
 
 type Settings = Record<string, string>
 type Speaker = { id: number; name_th: string; name_en: string; role_th: string; role_en: string; org_th: string; org_en: string; bio_th: string; bio_en: string; avatar_url: string; sort_order: number }
@@ -10,7 +10,7 @@ type Application = { id: number; prefix: string; firstname: string; lastname: st
 type AlumniRow = { id: number; name_th: string; role_th: string; company_th: string; avatar_url: string; gen: string }
 type TeamRow = { id: number; name_th: string; role_th: string; avatar_url: string }
 
-const TABS = ['ตั้งค่า & โบรชัวร์', 'วิทยากรผู้เชี่ยวชาญ', 'ผู้ประกอบการตัวจริง', 'ผู้สมัคร G2G']
+const TABS = ['ตั้งค่า & โบรชัวร์', 'วิทยากรผู้เชี่ยวชาญ', 'ผู้ประกอบการตัวจริง', 'ผู้สมัคร G2G', 'การชำระเงิน']
 const STATUS_COLORS: Record<string, string> = {
   pending:  'bg-amber-100 text-amber-800',
   approved: 'bg-green-100 text-green-800',
@@ -363,9 +363,147 @@ function ApplicationsTab({ initial }: { initial: Application[] }) {
   )
 }
 
+/* ───────────── PAYMENTS TAB ───────────── */
+type Payment = {
+  id: number; application_id: number; base_amount: number; coupon_code: string | null
+  discount_amount: number; wht: boolean; wht_amount: number; final_amount: number
+  method: string; omise_charge_id: string | null; status: string; paid_at: string | null
+  email_sent: boolean; created_at: string
+  firstname?: string; lastname?: string; business_name?: string; email?: string
+}
+
+const PAY_STATUS: Record<string, { label: string; color: string }> = {
+  pending: { label: 'รอชำระ',  color: 'bg-amber-100 text-amber-800' },
+  paid:    { label: 'ชำระแล้ว', color: 'bg-green-100 text-green-800' },
+  failed:  { label: 'ล้มเหลว',  color: 'bg-red-100 text-red-700' },
+  expired: { label: 'หมดอายุ',  color: 'bg-gray-100 text-gray-500' },
+}
+const METHOD_LABEL: Record<string, string> = { card: 'บัตร', promptpay: 'PromptPay', bank: 'โอน' }
+
+function PaymentsTab({ initial }: { initial: Payment[] }) {
+  const [payments, setPayments] = useState(initial)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const router = useRouter()
+  const fmt = (n: number) => Number(n).toLocaleString('th-TH')
+
+  const filtered = payments.filter(p => {
+    const name = `${p.firstname || ''} ${p.lastname || ''} ${p.business_name || ''}`
+    return (!search || name.toLowerCase().includes(search.toLowerCase())) &&
+           (!statusFilter || p.status === statusFilter)
+  })
+
+  async function confirmPayment(id: number) {
+    if (!window.confirm('ยืนยันการชำระเงินด้วยมือ?')) return
+    await fetch(`/api/g2g-payments/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'paid' }) })
+    setPayments(prev => prev.map(x => x.id === id ? { ...x, status: 'paid', paid_at: new Date().toISOString() } : x))
+    router.refresh()
+  }
+
+  function exportCSV() {
+    const header = 'ชื่อ,ธุรกิจ,อีเมล,ราคาปกติ,ส่วนลด,หัก ณ ที่จ่าย,ยอดสุทธิ,คูปอง,วิธีชำระ,สถานะ,วันที่ชำระ'
+    const rows = filtered.map(p =>
+      [`${p.firstname||''} ${p.lastname||''}`, p.business_name, p.email,
+       p.base_amount, p.discount_amount, p.wht ? p.wht_amount : 0, p.final_amount,
+       p.coupon_code || '', METHOD_LABEL[p.method] || p.method,
+       PAY_STATUS[p.status]?.label || p.status,
+       p.paid_at ? new Date(p.paid_at).toLocaleDateString('th-TH') : '']
+       .map(v => `"${v ?? ''}"`).join(',')
+    )
+    const blob = new Blob(['﻿' + [header, ...rows].join('\n')], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = 'g2g-payments.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const totalPaid = payments.filter(p => p.status === 'paid').reduce((s, p) => s + Number(p.final_amount), 0)
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Summary cards */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label: 'ยอดรับรวม', value: `${fmt(totalPaid)} ฿`, color: '#1D9E75' },
+          { label: 'ชำระแล้ว', value: payments.filter(p => p.status === 'paid').length, color: '#1D9E75' },
+          { label: 'รอชำระ', value: payments.filter(p => p.status === 'pending').length, color: '#D97706' },
+          { label: 'ล้มเหลว', value: payments.filter(p => p.status === 'failed').length, color: '#DC2626' },
+        ].map(s => (
+          <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4">
+            <div className="text-xs text-gray-500 mb-1">{s.label}</div>
+            <div className="text-xl font-semibold" style={{ color: s.color }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <input className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm w-52 focus:outline-none focus:border-orange-400"
+          placeholder="ค้นหาชื่อ / ธุรกิจ…" value={search} onChange={e => setSearch(e.target.value)} />
+        <select className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+          <option value="">ทุกสถานะ</option>
+          {Object.entries(PAY_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+        <span className="text-xs text-gray-400">{filtered.length} รายการ</span>
+        <button onClick={exportCSV} className="ml-auto flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50">
+          <Download size={12} /> Export CSV
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <table className="w-full text-xs">
+          <thead><tr className="bg-gray-50 border-b border-gray-100">
+            <th className="text-left px-4 py-2.5 text-gray-500 font-medium">ชื่อ</th>
+            <th className="text-left px-4 py-2.5 text-gray-500 font-medium">ธุรกิจ</th>
+            <th className="text-right px-4 py-2.5 text-gray-500 font-medium">ยอดสุทธิ</th>
+            <th className="text-left px-4 py-2.5 text-gray-500 font-medium">คูปอง</th>
+            <th className="text-left px-4 py-2.5 text-gray-500 font-medium">WHT</th>
+            <th className="text-left px-4 py-2.5 text-gray-500 font-medium">วิธีจ่าย</th>
+            <th className="text-left px-4 py-2.5 text-gray-500 font-medium">สถานะ</th>
+            <th className="text-left px-4 py-2.5 text-gray-500 font-medium">ส่งเมล</th>
+            <th className="text-left px-4 py-2.5 text-gray-500 font-medium">วันที่</th>
+            <th className="px-4 py-2.5"></th>
+          </tr></thead>
+          <tbody>
+            {filtered.map(p => (
+              <tr key={p.id} className="border-t border-gray-50 hover:bg-gray-50">
+                <td className="px-4 py-2.5 font-medium text-gray-800">{p.firstname} {p.lastname}</td>
+                <td className="px-4 py-2.5 text-gray-500">{p.business_name}</td>
+                <td className="px-4 py-2.5 text-right font-semibold text-gray-800">{fmt(p.final_amount)}</td>
+                <td className="px-4 py-2.5 text-orange-600 font-mono">{p.coupon_code || '—'}</td>
+                <td className="px-4 py-2.5 text-gray-500">{p.wht ? `−${fmt(p.wht_amount)}` : '—'}</td>
+                <td className="px-4 py-2.5 text-gray-500">{METHOD_LABEL[p.method] || p.method}</td>
+                <td className="px-4 py-2.5">
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${PAY_STATUS[p.status]?.color || 'bg-gray-100 text-gray-500'}`}>
+                    {PAY_STATUS[p.status]?.label || p.status}
+                  </span>
+                </td>
+                <td className="px-4 py-2.5">
+                  {p.email_sent
+                    ? <span className="text-green-600">✓</span>
+                    : <span className="text-gray-300">—</span>}
+                </td>
+                <td className="px-4 py-2.5 text-gray-400 whitespace-nowrap">
+                  {p.paid_at ? new Date(p.paid_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) : fmtDate(p.created_at)}
+                </td>
+                <td className="px-4 py-2.5">
+                  {p.status === 'pending' && (
+                    <button onClick={() => confirmPayment(p.id)} className="flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 rounded text-[10px] font-medium hover:bg-green-100 whitespace-nowrap">
+                      <Check size={10} /> Confirm
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {!filtered.length && <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400">ยังไม่มีรายการชำระเงิน</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 /* ───────────── MAIN ───────────── */
-export default function G2GClient({ settings, speakers, entrepreneurs, applications, alumni, team }: {
-  settings: Settings; speakers: Speaker[]; entrepreneurs: Entrepreneur[]; applications: Application[]; alumni: AlumniRow[]; team: TeamRow[]
+export default function G2GClient({ settings, speakers, entrepreneurs, applications, alumni, team, payments }: {
+  settings: Settings; speakers: Speaker[]; entrepreneurs: Entrepreneur[]; applications: Application[]; alumni: AlumniRow[]; team: TeamRow[]; payments: Payment[]
 }) {
   const [tab, setTab] = useState(0)
 
@@ -401,6 +539,7 @@ export default function G2GClient({ settings, speakers, entrepreneurs, applicati
         {tab === 1 && <PersonTab type="speaker" initial={speakers} />}
         {tab === 2 && <PersonTab type="entrepreneur" initial={entrepreneurs} />}
         {tab === 3 && <ApplicationsTab initial={applications} />}
+        {tab === 4 && <PaymentsTab initial={payments} />}
       </div>
     </div>
   )

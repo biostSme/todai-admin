@@ -10,6 +10,7 @@ export default async function G2GPage() {
     { rows: applications },
     { rows: alumni },
     { rows: team },
+    { rows: payments },
   ] = await Promise.all([
     db.query(`SELECT key, value FROM g2g_settings`),
     db.query(`SELECT * FROM g2g_speakers ORDER BY sort_order, id`),
@@ -17,6 +18,7 @@ export default async function G2GPage() {
     db.query(`SELECT * FROM g2g_applications ORDER BY created_at DESC`),
     db.query(`SELECT id, name_th, name_en, role_th, company_th, avatar_url, gen, courses FROM alumni ORDER BY sort_order, id`),
     db.query(`SELECT id, name_th, role_th, avatar_url FROM team ORDER BY sort_order, id`),
+    db.query(`SELECT p.*, a.firstname, a.lastname, a.business_name, a.email FROM g2g_payments p LEFT JOIN g2g_applications a ON a.id=p.application_id ORDER BY p.created_at DESC`),
   ])
 
   const settings: Record<string, string> = {}
@@ -30,6 +32,7 @@ export default async function G2GPage() {
       applications={applications}
       alumni={alumni}
       team={team}
+      payments={payments}
     />
   )
 }
