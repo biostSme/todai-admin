@@ -6,7 +6,18 @@ import { Upload, Plus, Trash2, Edit2, Save, X, Download, ExternalLink, Check, Cr
 type Settings = Record<string, string>
 type Speaker = { id: number; name_th: string; name_en: string; role_th: string; role_en: string; org_th: string; org_en: string; bio_th: string; bio_en: string; avatar_url: string; sort_order: number }
 type Entrepreneur = { id: number; name_th: string; name_en: string; role_th: string; role_en: string; company_th: string; company_en: string; bio_th: string; bio_en: string; avatar_url: string; sort_order: number }
-type Application = { id: number; prefix: string; firstname: string; lastname: string; nickname: string; phone: string; email: string; business_name: string; business_type: string; revenue: string; status: string; created_at: string }
+type Application = {
+  id: number; status: string; created_at: string
+  // Step 1 — ข้อมูลส่วนบุคคล
+  prefix: string; firstname: string; lastname: string; nickname: string
+  birth_day: string; birth_month: string; birth_year: string; id_card: string
+  phone: string; email: string; facebook: string; line_id: string
+  // Step 2 — ข้อมูลธุรกิจ
+  business_name: string; business_type: string; business_age: string
+  revenue: string; employees: string; website: string; challenges: string
+  // Step 3 — ข้อมูลอื่นๆ
+  referral: string; reason: string; expectation: string; note: string
+}
 type AlumniRow = { id: number; name_th: string; role_th: string; company_th: string; avatar_url: string; gen: string }
 type TeamRow = { id: number; name_th: string; role_th: string; avatar_url: string }
 
@@ -212,6 +223,35 @@ function PersonTab({ type, initial }: { type: PersonType; initial: any[] }) {
   )
 }
 
+/* ───────────── DETAIL MODAL HELPERS ───────────── */
+function Section({ title, step, children }: { title: string; step: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center text-white flex-shrink-0" style={{ background: 'var(--orange)' }}>{step}</span>
+        <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{title}</span>
+      </div>
+      <div className="bg-gray-50 rounded-xl p-4 flex flex-col gap-2.5">{children}</div>
+    </div>
+  )
+}
+function Row1({ label, value, long }: { label: string; value: string; long?: boolean }) {
+  return (
+    <div className={long ? 'flex flex-col gap-1' : 'flex gap-3'}>
+      <span className="text-xs text-gray-400 flex-shrink-0 w-44">{label}</span>
+      <span className={`text-sm text-gray-800 ${long ? 'whitespace-pre-wrap' : ''}`}>{value || '—'}</span>
+    </div>
+  )
+}
+function Row2({ label, value, label2, value2 }: { label: string; value: string; label2: string; value2: string }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div><span className="text-xs text-gray-400 block">{label}</span><span className="text-sm text-gray-800">{value || '—'}</span></div>
+      <div><span className="text-xs text-gray-400 block">{label2}</span><span className="text-sm text-gray-800">{value2 || '—'}</span></div>
+    </div>
+  )
+}
+
 /* ───────────── APPLICATIONS TAB ───────────── */
 function ApplicationsTab({ initial }: { initial: Application[] }) {
   const [apps, setApps] = useState(initial)
@@ -242,10 +282,14 @@ function ApplicationsTab({ initial }: { initial: Application[] }) {
   }
 
   function exportCSV() {
-    const header = 'ชื่อ,ชื่อเล่น,อีเมล,โทร,ธุรกิจ,ประเภทธุรกิจ,รายได้,สถานะ,วันที่สมัคร'
+    const header = 'คำนำหน้า,ชื่อ,นามสกุล,ชื่อเล่น,วันเกิด,เลขบัตรประชาชน,เบอร์โทร,อีเมล,Facebook,LINE ID,ชื่อธุรกิจ,ประเภทธุรกิจ,อายุธุรกิจ,รายได้ต่อปี,จำนวนพนักงาน,เว็บไซต์,ความท้าทาย,รู้จักจาก,เหตุผลที่สมัคร,ความคาดหวัง,หมายเหตุ,สถานะ,วันที่สมัคร'
     const rows = filtered.map(a =>
-      [a.prefix + a.firstname + ' ' + a.lastname, a.nickname, a.email, a.phone,
-       a.business_name, a.business_type, a.revenue, STATUS_LABEL[a.status] || a.status, fmtDate(a.created_at)]
+      [a.prefix, a.firstname, a.lastname, a.nickname,
+       [a.birth_day, a.birth_month, a.birth_year].filter(Boolean).join(' '),
+       a.id_card, a.phone, a.email, a.facebook, a.line_id,
+       a.business_name, a.business_type, a.business_age, a.revenue, a.employees, a.website, a.challenges,
+       a.referral, a.reason, a.expectation, a.note,
+       STATUS_LABEL[a.status] || a.status, fmtDate(a.created_at)]
        .map(v => `"${v ?? ''}"`).join(',')
     )
     const blob = new Blob(['﻿' + [header, ...rows].join('\n')], { type: 'text/csv;charset=utf-8' })
@@ -314,43 +358,53 @@ function ApplicationsTab({ initial }: { initial: Application[] }) {
       {/* Detail Modal */}
       {detail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setDetail(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto m-4" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
               <div>
-                <div className="font-semibold text-gray-800">{detail.prefix}{detail.firstname} {detail.lastname}</div>
-                <div className="text-xs text-gray-500">{detail.business_name} · {fmtDate(detail.created_at)}</div>
+                <div className="font-semibold text-gray-900 text-base">{detail.prefix}{detail.firstname} {detail.lastname} {detail.nickname ? `(${detail.nickname})` : ''}</div>
+                <div className="text-xs text-gray-400 mt-0.5">{detail.business_name} · สมัครเมื่อ {fmtDate(detail.created_at)}</div>
               </div>
-              <button onClick={() => setDetail(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X size={16} /></button>
+              <div className="flex items-center gap-2">
+                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[detail.status] || 'bg-gray-100 text-gray-500'}`}>
+                  {STATUS_LABEL[detail.status]}
+                </span>
+                <button onClick={() => setDetail(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X size={16} /></button>
+              </div>
             </div>
-            <div className="p-5 flex flex-col gap-3 text-sm">
-              {([
-                ['ชื่อเล่น', detail.nickname],
-                ['เบอร์โทร', detail.phone],
-                ['อีเมล', detail.email],
-                ['Facebook', (detail as any).facebook],
-                ['LINE ID', (detail as any).line_id],
-                ['วันเกิด', [(detail as any).birth_day, (detail as any).birth_month, (detail as any).birth_year].filter(Boolean).join(' ')],
-                ['เลขบัตรประชาชน', (detail as any).id_card],
-                ['ประเภทธุรกิจ', detail.business_type],
-                ['อายุธุรกิจ', (detail as any).business_age],
-                ['รายได้ต่อปี', detail.revenue],
-                ['จำนวนพนักงาน', (detail as any).employees],
-                ['เว็บไซต์', (detail as any).website],
-                ['ความท้าทาย', (detail as any).challenges],
-                ['รู้จักจาก', (detail as any).referral],
-                ['เหตุผลที่สมัคร', (detail as any).reason],
-                ['ความคาดหวัง', (detail as any).expectation],
-                ['หมายเหตุ', (detail as any).note],
-              ] as [string, string][]).filter(([, v]) => v).map(([k, v]) => (
-                <div key={k} className="flex gap-2">
-                  <span className="text-gray-400 w-36 flex-shrink-0">{k}</span>
-                  <span className="text-gray-800">{v}</span>
-                </div>
-              ))}
-              <div className="flex gap-2 pt-2 border-t border-gray-100">
-                {['pending', 'approved', 'rejected'].map(st => (
+
+            <div className="p-6 flex flex-col gap-5">
+              {/* Section 1: ข้อมูลส่วนบุคคล */}
+              <Section title="ข้อมูลส่วนบุคคล" step="1">
+                <Row2 label="ชื่อ-นามสกุล" value={`${detail.prefix}${detail.firstname} ${detail.lastname}`} label2="ชื่อเล่น" value2={detail.nickname} />
+                <Row2 label="วันเกิด" value={[detail.birth_day, detail.birth_month, detail.birth_year].filter(Boolean).join(' ') || '—'} label2="เลขบัตรประชาชน" value2={detail.id_card} />
+                <Row2 label="เบอร์โทร" value={detail.phone} label2="อีเมล" value2={detail.email} />
+                <Row2 label="Facebook" value={detail.facebook} label2="LINE ID" value2={detail.line_id} />
+              </Section>
+
+              {/* Section 2: ข้อมูลธุรกิจ */}
+              <Section title="ข้อมูลธุรกิจ" step="2">
+                <Row1 label="ชื่อธุรกิจ / แบรนด์" value={detail.business_name} />
+                <Row2 label="ประเภทธุรกิจ" value={detail.business_type} label2="อายุธุรกิจ" value2={detail.business_age} />
+                <Row2 label="รายได้ต่อปี" value={detail.revenue} label2="จำนวนพนักงาน" value2={detail.employees} />
+                <Row1 label="เว็บไซต์ / โซเชียล" value={detail.website} />
+                <Row1 label="ความท้าทายหลักของธุรกิจ" value={detail.challenges} long />
+              </Section>
+
+              {/* Section 3: ข้อมูลอื่นๆ */}
+              <Section title="ข้อมูลอื่นๆ" step="3">
+                <Row1 label="รู้จัก GREAT to GROWTH จาก" value={detail.referral} />
+                <Row1 label="เหตุผลที่อยากเข้าร่วม" value={detail.reason} long />
+                <Row1 label="สิ่งที่คาดหวังจากโปรแกรม" value={detail.expectation} long />
+                <Row1 label="หมายเหตุ / คำถามเพิ่มเติม" value={detail.note} long />
+              </Section>
+
+              {/* Status actions */}
+              <div className="flex gap-2 pt-1 border-t border-gray-100">
+                <span className="text-xs text-gray-400 self-center mr-1">เปลี่ยนสถานะ:</span>
+                {(['pending', 'approved', 'rejected'] as const).map(st => (
                   <button key={st} onClick={() => changeStatus(detail.id, st)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium ${detail.status === st ? STATUS_COLORS[st] : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${detail.status === st ? STATUS_COLORS[st] : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
                     {STATUS_LABEL[st]}
                   </button>
                 ))}
