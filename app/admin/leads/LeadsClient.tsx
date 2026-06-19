@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Download, Search, Trash2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
-type Lead = { id: string; name: string; business: string; industry: string; size: string; contact: string; created_at: string }
+type Lead = { id: string; name: string; business: string; industry: string; size: string; contact: string; email: string; phone: string; interest: string; interest_other: string; created_at: string }
 
 function formatDateTime(iso: string) {
   const d = new Date(iso)
@@ -31,10 +31,11 @@ export default function LeadsClient({ leads: initial }: { leads: Lead[] }) {
   }
 
   function exportCSV() {
-    const header = 'ชื่อ,ธุรกิจ,อุตสาหกรรม,ขนาดธุรกิจ,ช่องทางติดต่อ,วันที่'
+    const header = 'ชื่อ,ธุรกิจ,อุตสาหกรรม,ขนาดธุรกิจ,ช่องทางติดต่อ,อีเมล,โทร,สนใจ,วันที่'
     const rows = filtered.map(l =>
-      [l.name, l.business, l.industry, l.size, l.contact,
-        formatDateTime(l.created_at)].map(v => `"${v ?? ''}"`).join(',')
+      [l.name, l.business, l.industry, l.size, l.contact, l.email, l.phone,
+       l.interest_other ? `${l.interest} (${l.interest_other})` : l.interest,
+       formatDateTime(l.created_at)].map(v => `"${v ?? ''}"`).join(',')
     )
     const blob = new Blob(['﻿' + [header, ...rows].join('\n')], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -81,7 +82,9 @@ export default function LeadsClient({ leads: initial }: { leads: Lead[] }) {
               <th className="text-left px-4 py-2.5 text-gray-500 font-medium">ธุรกิจ</th>
               <th className="text-left px-4 py-2.5 text-gray-500 font-medium">อุตสาหกรรม</th>
               <th className="text-left px-4 py-2.5 text-gray-500 font-medium">ขนาดธุรกิจ</th>
-              <th className="text-left px-4 py-2.5 text-gray-500 font-medium">ช่องทางติดต่อ</th>
+              <th className="text-left px-4 py-2.5 text-gray-500 font-medium">ติดต่อ</th>
+              <th className="text-left px-4 py-2.5 text-gray-500 font-medium">อีเมล / โทร</th>
+              <th className="text-left px-4 py-2.5 text-gray-500 font-medium">สนใจหลักสูตร</th>
               <th className="text-left px-4 py-2.5 text-gray-500 font-medium whitespace-nowrap">วันที่ / เวลา</th>
               <th className="px-4 py-2.5 w-10"></th>
             </tr></thead>
@@ -93,6 +96,8 @@ export default function LeadsClient({ leads: initial }: { leads: Lead[] }) {
                   <td className="px-4 py-2.5 text-gray-500">{l.industry || '—'}</td>
                   <td className="px-4 py-2.5 text-gray-500">{l.size || '—'}</td>
                   <td className="px-4 py-2.5 text-gray-500">{l.contact}</td>
+                  <td className="px-4 py-2.5 text-gray-500">{[l.email, l.phone].filter(Boolean).join(' · ') || '—'}</td>
+                  <td className="px-4 py-2.5 text-gray-500">{l.interest_other ? `${l.interest} (${l.interest_other})` : (l.interest || '—')}</td>
                   <td className="px-4 py-2.5 text-gray-400 whitespace-nowrap">{formatDateTime(l.created_at)}</td>
                   <td className="px-4 py-2.5">
                     <button
@@ -105,7 +110,7 @@ export default function LeadsClient({ leads: initial }: { leads: Lead[] }) {
                   </td>
                 </tr>
               ))}
-              {!filtered.length && <tr><td colSpan={7} className="px-4 py-10 text-center text-gray-400">ไม่พบข้อมูล</td></tr>}
+              {!filtered.length && <tr><td colSpan={9} className="px-4 py-10 text-center text-gray-400">ไม่พบข้อมูล</td></tr>}
             </tbody>
           </table>
         </div>

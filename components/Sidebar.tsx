@@ -3,13 +3,14 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users, BookOpen, Building2,
-  PenLine, Type, Settings, LogOut, UserCircle, Briefcase
+  PenLine, Type, Settings, LogOut, UserCircle, Briefcase, TrendingUp
 } from 'lucide-react'
 
 const nav = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { label: 'จัดการข้อมูล', section: true },
-  { href: '/admin/leads', label: 'Leads', icon: Users },
+  { href: '/admin/leads', label: 'Leads (ชุมชน)', icon: Users },
+  { href: '/admin/g2g', label: 'GREAT to GROWTH', icon: TrendingUp },
   { href: '/admin/courses', label: 'คอร์สเรียน', icon: BookOpen },
   { href: '/admin/corp', label: 'คอร์สองค์กร', icon: Briefcase },
   { href: '/admin/alumni', label: 'ทำเนียบศิษย์เก่า', icon: Building2 },

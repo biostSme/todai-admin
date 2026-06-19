@@ -9,8 +9,10 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const d = await req.json()
   const { rows } = await db.query(
-    `INSERT INTO leads (name, business, industry, size, contact) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [d.name, d.business || null, d.industry || null, d.size || null, d.contact]
+    `INSERT INTO leads (name, business, industry, size, contact, email, phone, interest, interest_other)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+    [d.name, d.business || null, d.industry || null, d.size || null, d.contact || null,
+     d.email || null, d.phone || null, d.interest || null, d.interest_other || null]
   )
   return NextResponse.json(rows[0])
 }
