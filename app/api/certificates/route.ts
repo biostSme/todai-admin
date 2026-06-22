@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import pool from '@/lib/db'
 import { put } from '@vercel/blob'
 import crypto from 'crypto'
+import { sendCertificateEmail } from '@/lib/email'
 // @ts-ignore
 import PDFDocument from 'pdfkit'
 
@@ -41,7 +42,16 @@ export async function POST(req: NextRequest) {
 
     await pool.query('UPDATE enrollments SET certificate_url=$1 WHERE id=$2', [blob.url, enrollment_id])
 
-    return NextResponse.json({ pdf_url: blob.url, verify_token, verify_url: `${process.env.NEXTAUTH_URL}/verify/${verify_token}` })
+    const verifyUrl = `${process.env.NEXTAUTH_URL}/verify/${verify_token}`
+    try {
+      await sendCertificateEmail({
+        to: enr.email, name: enr.name,
+        sessionTitle: enr.session_title,
+        pdfUrl: blob.url, verifyUrl,
+      })
+    } catch (e) { console.error('Certificate email failed:', e) }
+
+    return NextResponse.json({ pdf_url: blob.url, verify_token, verify_url: verifyUrl })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
