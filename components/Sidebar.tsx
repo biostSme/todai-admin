@@ -14,6 +14,7 @@ const nav = [
   { href: '/admin/enrollments', label: 'ผู้ลงทะเบียน', icon: ClipboardList },
   { href: '/admin/checkin', label: 'QR Check-in', icon: QrCode },
   { href: '/admin/users', label: 'ผู้ใช้งาน', icon: Users },
+  { href: '/admin/revenue', label: 'Revenue', icon: TrendingUp },
   { label: 'จัดการข้อมูล', section: true },
   { href: '/admin/leads', label: 'Leads (ชุมชน)', icon: Users },
   { href: '/admin/g2g', label: 'GREAT to GROWTH', icon: TrendingUp },
