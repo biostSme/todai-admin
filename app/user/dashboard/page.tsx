@@ -1,4 +1,4 @@
-import { auth } from '@/lib/nextauth'
+import { getUserSession } from '@/lib/userauth'
 import { redirect } from 'next/navigation'
 import pool from '@/lib/db'
 import UserDashboardClient from './UserDashboardClient'
@@ -6,10 +6,10 @@ import UserDashboardClient from './UserDashboardClient'
 export const dynamic = 'force-dynamic'
 
 export default async function Page() {
-  const session = await auth()
-  if (!session?.user) redirect('/user/login')
+  const session = await getUserSession()
+  if (!session) redirect('/user/login')
 
-  const userId = (session.user as any).id
+  const userId = session.id
 
   const { rows: enrollments } = await pool.query(
     `SELECT e.id, e.qr_token, e.checked_in_at, e.certificate_url, e.created_at,
@@ -23,5 +23,5 @@ export default async function Page() {
     [userId]
   )
 
-  return <UserDashboardClient user={session.user} enrollments={enrollments} />
+  return <UserDashboardClient user={session} enrollments={enrollments} />
 }

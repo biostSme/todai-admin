@@ -9,16 +9,15 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@auth/pg-adapter": "^1.11.2",
     "@types/pg": "^8.20.0",
     "@upstash/redis": "^1.38.0",
     "@vercel/blob": "^2.4.1",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",
+    "jose": "^6.2.3",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.18.0",
     "next": "16.2.9",
-    "next-auth": "^5.0.0-beta.25",
     "nodemailer": "^9.0.1",
     "omise": "^1.1.0",
     "pdfkit": "^0.19.1",

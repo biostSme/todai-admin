@@ -2,7 +2,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { signIn } from 'next-auth/react'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -22,8 +21,11 @@ export default function RegisterPage() {
     if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); setLoading(false); return }
 
     // Auto login after register
-    const login = await signIn('credentials', { email: form.email, password: form.password, redirect: false })
-    if (login?.ok) router.push('/user/dashboard')
+    const login = await fetch('/api/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: form.email, password: form.password }),
+    })
+    if (login.ok) router.push('/user/dashboard')
     else router.push('/user/login')
     setLoading(false)
   }

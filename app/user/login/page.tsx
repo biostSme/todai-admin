@@ -1,6 +1,5 @@
 'use client'
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -13,8 +12,12 @@ export default function LoginPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true); setError('')
-    const res = await signIn('credentials', { ...form, redirect: false })
-    if (res?.ok) {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form),
+    })
+    if (res.ok) {
       router.push('/user/dashboard')
     } else {
       setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง')

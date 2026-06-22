@@ -1,5 +1,5 @@
 'use client'
-import { signOut } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { QrCode, Download, CheckCircle, Clock, Award, Calendar, MapPin, LogOut } from 'lucide-react'
 
 type Enrollment = {
@@ -9,6 +9,13 @@ type Enrollment = {
 }
 
 export default function UserDashboardClient({ user, enrollments }: { user: any; enrollments: Enrollment[] }) {
+  const router = useRouter()
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    router.push('/user/login')
+  }
+
   function fmt(d: string) {
     if (!d) return '-'
     return new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -35,7 +42,7 @@ export default function UserDashboardClient({ user, enrollments }: { user: any; 
           <div className="font-semibold text-gray-900" style={{ color: 'var(--navy, #1B2559)' }}>โตได้โตดี</div>
           <div className="text-xs text-gray-500">สวัสดี, {user.name || user.email}</div>
         </div>
-        <button onClick={() => signOut({ callbackUrl: '/user/login' })} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-red-500">
+        <button onClick={handleLogout} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-red-500">
           <LogOut size={14} /> ออก
         </button>
       </div>
