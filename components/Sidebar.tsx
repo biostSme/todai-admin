@@ -3,11 +3,17 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users, BookOpen, Building2,
-  PenLine, Type, Settings, LogOut, UserCircle, Briefcase, TrendingUp, Tag
+  PenLine, Type, Settings, LogOut, UserCircle, Briefcase, TrendingUp, Tag,
+  CalendarDays, ClipboardList, QrCode, MessageSquare
 } from 'lucide-react'
 
 const nav = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { label: 'ระบบลงทะเบียน', section: true },
+  { href: '/admin/sessions', label: 'Course Sessions', icon: CalendarDays },
+  { href: '/admin/enrollments', label: 'ผู้ลงทะเบียน', icon: ClipboardList },
+  { href: '/admin/checkin', label: 'QR Check-in', icon: QrCode },
+  { href: '/admin/users', label: 'ผู้ใช้งาน', icon: Users },
   { label: 'จัดการข้อมูล', section: true },
   { href: '/admin/leads', label: 'Leads (ชุมชน)', icon: Users },
   { href: '/admin/g2g', label: 'GREAT to GROWTH', icon: TrendingUp },
