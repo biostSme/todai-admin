@@ -38,7 +38,6 @@ const nav: NavItem[] = [
     children: [
       { href: '/admin/g2g', label: 'สถานะ & การจ่าย', icon: BarChart2 },
       { href: '/admin/enrollments', label: 'ผู้ลงทะเบียน', icon: ClipboardList },
-      { href: '/admin/checkin', label: 'QR Check-in', icon: QrCode },
       { href: '/admin/team', label: 'ทีมงาน & วิทยากร', icon: UserCircle },
       { href: '/admin/alumni', label: 'ศิษย์เก่า', icon: Building2 },
     ],
