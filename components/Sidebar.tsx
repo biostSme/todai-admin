@@ -42,7 +42,7 @@ const nav: NavItem[] = [
       { href: '/admin/g2g/entrepreneurs', label: 'ผู้ประกอบการตัวจริง', icon: Store },
       { href: '/admin/g2g/applications', label: 'ผู้สมัคร G2G', icon: ClipboardList },
       { href: '/admin/g2g/payments', label: 'การชำระเงิน', icon: CreditCard },
-      { href: '/admin/team', label: 'ทีมงาน & วิทยากร', icon: UserCircle },
+      { href: '/admin/g2g/team', label: 'ทีมงาน BRANDi (G2G)', icon: UserCircle },
       { href: '/admin/alumni', label: 'ศิษย์เก่า', icon: Building2 },
     ],
   },
