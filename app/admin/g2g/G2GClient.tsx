@@ -579,44 +579,37 @@ function PaymentsTab({ initial }: { initial: Payment[] }) {
 }
 
 /* ───────────── MAIN ───────────── */
-export default function G2GClient({ settings, speakers, entrepreneurs, applications, alumni, team, payments }: {
+export default function G2GClient({ settings, speakers, entrepreneurs, applications, alumni, team, payments, initialTab = 0 }: {
   settings: Settings; speakers: Speaker[]; entrepreneurs: Entrepreneur[]; applications: Application[]; alumni: AlumniRow[]; team: TeamRow[]; payments: Payment[]
+  initialTab?: number
 }) {
-  const [tab, setTab] = useState(0)
+  const subtitle = TABS[initialTab] ?? 'GREAT to GROWTH'
 
   return (
     <div>
       <div className="px-6 py-4 bg-white border-b border-gray-100 flex items-center gap-3">
         <div>
-          <h1 className="font-semibold text-gray-900">GREAT to GROWTH</h1>
-          <p className="text-xs text-gray-400 mt-0.5">จัดการข้อมูลหน้า G2G ทั้งหมด</p>
+          <h1 className="font-semibold text-gray-900">{subtitle}</h1>
+          <p className="text-xs text-gray-400 mt-0.5">GREAT to GROWTH</p>
         </div>
-        <div className="ml-auto flex items-center gap-1.5">
-          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
-            ผู้สมัคร {applications.length} ราย
-          </span>
-          <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
-            รอพิจารณา {applications.filter(a => a.status === 'pending').length}
-          </span>
-        </div>
-      </div>
-
-      {/* Tab Bar */}
-      <div className="px-6 pt-4 flex gap-1 border-b border-gray-100 bg-white">
-        {TABS.map((t, i) => (
-          <button key={t} onClick={() => setTab(i)}
-            className={`px-4 py-2 text-xs font-medium rounded-t-lg border-b-2 transition-colors ${tab === i ? 'border-orange-400 text-orange-500 bg-orange-50' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-            {t}
-          </button>
-        ))}
+        {initialTab === 3 && (
+          <div className="ml-auto flex items-center gap-1.5">
+            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
+              ผู้สมัคร {applications.length} ราย
+            </span>
+            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
+              รอพิจารณา {applications.filter(a => a.status === 'pending').length}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="p-6">
-        {tab === 0 && <SettingsTab init={settings} />}
-        {tab === 1 && <PersonTab type="speaker" initial={speakers} />}
-        {tab === 2 && <PersonTab type="entrepreneur" initial={entrepreneurs} />}
-        {tab === 3 && <ApplicationsTab initial={applications} />}
-        {tab === 4 && <PaymentsTab initial={payments} />}
+        {initialTab === 0 && <SettingsTab init={settings} />}
+        {initialTab === 1 && <PersonTab type="speaker" initial={speakers} />}
+        {initialTab === 2 && <PersonTab type="entrepreneur" initial={entrepreneurs} />}
+        {initialTab === 3 && <ApplicationsTab initial={applications} />}
+        {initialTab === 4 && <PaymentsTab initial={payments} />}
       </div>
     </div>
   )

@@ -5,14 +5,15 @@ import { useState } from 'react'
 import {
   LayoutDashboard, Users, BookOpen, Building2, PenLine,
   Settings, LogOut, UserCircle, Briefcase, TrendingUp, Tag,
-  CalendarDays, ClipboardList, QrCode, ChevronDown, ChevronRight,
-  GraduationCap, Megaphone, BarChart2, FileText, MessageSquare
+  CalendarDays, ClipboardList, ChevronDown, ChevronRight,
+  GraduationCap, Megaphone, BarChart2, FileText, MessageSquare,
+  Mic2, Store, CreditCard, Settings2
 } from 'lucide-react'
 
 type NavItem =
   | { section: string }
   | { href: string; label: string; icon: React.ElementType; match?: string[] }
-  | { group: string; icon: React.ElementType; color?: string; children: { href: string; label: string; icon: React.ElementType }[] }
+  | { group: string; icon: React.ElementType; color?: string; children: { href: string; label: string; icon: React.ElementType; match?: string[] }[] }
 
 const nav: NavItem[] = [
   // ── Overview ──
@@ -36,8 +37,11 @@ const nav: NavItem[] = [
   {
     group: 'Control Panel G2G', icon: TrendingUp, color: '#FF8B1C',
     children: [
-      { href: '/admin/g2g', label: 'สถานะ & การจ่าย', icon: BarChart2 },
-      { href: '/admin/enrollments', label: 'ผู้ลงทะเบียน', icon: ClipboardList },
+      { href: '/admin/g2g', label: 'ตั้งค่า & โบรชัวร์', icon: Settings2, match: ['/admin/g2g'] },
+      { href: '/admin/g2g/speakers', label: 'วิทยากรผู้เชี่ยวชาญ', icon: Mic2 },
+      { href: '/admin/g2g/entrepreneurs', label: 'ผู้ประกอบการตัวจริง', icon: Store },
+      { href: '/admin/g2g/applications', label: 'ผู้สมัคร G2G', icon: ClipboardList },
+      { href: '/admin/g2g/payments', label: 'การชำระเงิน', icon: CreditCard },
       { href: '/admin/team', label: 'ทีมงาน & วิทยากร', icon: UserCircle },
       { href: '/admin/alumni', label: 'ศิษย์เก่า', icon: Building2 },
     ],
