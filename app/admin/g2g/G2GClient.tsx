@@ -7,15 +7,27 @@ type Settings = Record<string, string>
 type Speaker = { id: number; name_th: string; name_en: string; role_th: string; role_en: string; org_th: string; org_en: string; bio_th: string; bio_en: string; avatar_url: string; sort_order: number }
 type Entrepreneur = { id: number; name_th: string; name_en: string; role_th: string; role_en: string; company_th: string; company_en: string; bio_th: string; bio_en: string; avatar_url: string; sort_order: number }
 type Application = {
-  id: number; status: string; created_at: string
-  // Step 1 — ข้อมูลส่วนบุคคล
+  id: number; status: string; created_at: string; batch_number: string
+  // Person 1 (TH)
   prefix: string; firstname: string; lastname: string; nickname: string
+  // Person 1 (EN)
+  prefix_en: string; firstname_en: string; lastname_en: string; nickname_en: string
+  // Person 1 — contact
   birth_day: string; birth_month: string; birth_year: string; id_card: string
   phone: string; email: string; facebook: string; line_id: string
-  // Step 2 — ข้อมูลธุรกิจ
-  business_name: string; business_type: string; business_age: string
+  // Person 2 (optional)
+  p2_prefix: string; p2_firstname: string; p2_lastname: string; p2_nickname: string
+  p2_prefix_en: string; p2_firstname_en: string; p2_lastname_en: string; p2_nickname_en: string
+  p2_birth_day: string; p2_birth_month: string; p2_birth_year: string; p2_id_card: string
+  p2_phone: string; p2_email: string; p2_facebook: string; p2_line_id: string
+  // Business
+  business_name: string; business_company: string; business_branch: string
+  business_address: string; business_taxid: string; business_phone: string
+  business_type: string; business_age: string
   revenue: string; employees: string; website: string; challenges: string
-  // Step 3 — ข้อมูลอื่นๆ
+  // Document
+  doc_delivery: string; doc_alt_address: string
+  // Other
   referral: string; reason: string; expectation: string; note: string
 }
 type AlumniRow = { id: number; name_th: string; role_th: string; company_th: string; avatar_url: string; gen: string }
@@ -305,15 +317,42 @@ function ApplicationsTab({ initial }: { initial: Application[] }) {
   }
 
   function exportCSV() {
-    const header = 'คำนำหน้า,ชื่อ,นามสกุล,ชื่อเล่น,วันเกิด,เลขบัตรประชาชน,เบอร์โทร,อีเมล,Facebook,LINE ID,ชื่อธุรกิจ,ประเภทธุรกิจ,อายุธุรกิจ,รายได้ต่อปี,จำนวนพนักงาน,เว็บไซต์,ความท้าทาย,รู้จักจาก,เหตุผลที่สมัคร,ความคาดหวัง,หมายเหตุ,สถานะ,วันที่สมัคร'
+    const header = [
+      'รุ่น',
+      // P1
+      'คำนำหน้า(TH)','ชื่อ(TH)','นามสกุล(TH)','ชื่อเล่น(TH)',
+      'คำนำหน้า(EN)','ชื่อ(EN)','นามสกุล(EN)','ชื่อเล่น(EN)',
+      'วันเกิด','เลขบัตรประชาชน','เบอร์โทร','อีเมล','Facebook','LINE ID',
+      // P2
+      'คำนำหน้า P2(TH)','ชื่อ P2(TH)','นามสกุล P2(TH)','ชื่อเล่น P2(TH)',
+      'คำนำหน้า P2(EN)','ชื่อ P2(EN)','นามสกุล P2(EN)','ชื่อเล่น P2(EN)',
+      'วันเกิด P2','เลขบัตร P2','เบอร์โทร P2','อีเมล P2','Facebook P2','LINE ID P2',
+      // Business
+      'ชื่อธุรกิจ/แบรนด์','ชื่อนิติบุคคล','สาขา','ที่อยู่','เลขภาษี','เบอร์ธุรกิจ',
+      'ประเภทธุรกิจ','อายุธุรกิจ','รายได้ต่อปี','จำนวนพนักงาน','เว็บไซต์','ความท้าทาย',
+      // Doc
+      'รับเอกสารที่','ที่อยู่สำรอง',
+      // Other
+      'รู้จักจาก','เหตุผลที่สมัคร','ความคาดหวัง','หมายเหตุ',
+      'สถานะ','วันที่สมัคร',
+    ].join(',')
     const rows = filtered.map(a =>
-      [a.prefix, a.firstname, a.lastname, a.nickname,
-       [a.birth_day, a.birth_month, a.birth_year].filter(Boolean).join(' '),
-       a.id_card, a.phone, a.email, a.facebook, a.line_id,
-       a.business_name, a.business_type, a.business_age, a.revenue, a.employees, a.website, a.challenges,
-       a.referral, a.reason, a.expectation, a.note,
-       STATUS_LABEL[a.status] || a.status, fmtDate(a.created_at)]
-       .map(v => `"${v ?? ''}"`).join(',')
+      [
+        a.batch_number,
+        a.prefix, a.firstname, a.lastname, a.nickname,
+        a.prefix_en, a.firstname_en, a.lastname_en, a.nickname_en,
+        [a.birth_day, a.birth_month, a.birth_year].filter(Boolean).join(' '),
+        a.id_card, a.phone, a.email, a.facebook, a.line_id,
+        a.p2_prefix, a.p2_firstname, a.p2_lastname, a.p2_nickname,
+        a.p2_prefix_en, a.p2_firstname_en, a.p2_lastname_en, a.p2_nickname_en,
+        [a.p2_birth_day, a.p2_birth_month, a.p2_birth_year].filter(Boolean).join(' '),
+        a.p2_id_card, a.p2_phone, a.p2_email, a.p2_facebook, a.p2_line_id,
+        a.business_name, a.business_company, a.business_branch, a.business_address, a.business_taxid, a.business_phone,
+        a.business_type, a.business_age, a.revenue, a.employees, a.website, a.challenges,
+        a.doc_delivery, a.doc_alt_address,
+        a.referral, a.reason, a.expectation, a.note,
+        STATUS_LABEL[a.status] || a.status, fmtDate(a.created_at),
+      ].map(v => `"${v ?? ''}"`).join(',')
     )
     const blob = new Blob(['﻿' + [header, ...rows].join('\n')], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -352,9 +391,12 @@ function ApplicationsTab({ initial }: { initial: Application[] }) {
           <tbody>
             {filtered.map(a => (
               <tr key={a.id} className="border-t border-gray-50 hover:bg-gray-50 cursor-pointer" onClick={() => setDetail(a)}>
-                <td className="px-4 py-2.5 font-medium text-gray-800">{a.prefix}{a.firstname} {a.lastname} {a.nickname ? `(${a.nickname})` : ''}</td>
-                <td className="px-4 py-2.5 text-gray-500">{a.business_name}</td>
-                <td className="px-4 py-2.5 text-gray-500">{a.phone || a.email}</td>
+                <td className="px-4 py-2.5">
+                  <div className="font-medium text-gray-800 text-xs">{a.prefix}{a.firstname} {a.lastname} {a.nickname ? `(${a.nickname})` : ''}</div>
+                  {a.p2_firstname && <div className="text-[10px] text-orange-500 mt-0.5">+ {a.p2_firstname} {a.p2_lastname}</div>}
+                </td>
+                <td className="px-4 py-2.5 text-gray-500 text-xs">{a.business_name}{a.batch_number ? <span className="ml-1.5 text-[10px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full">รุ่น {a.batch_number}</span> : null}</td>
+                <td className="px-4 py-2.5 text-gray-500 text-xs">{a.phone || a.email}</td>
                 <td className="px-4 py-2.5">
                   <select
                     className={`text-[10px] font-medium px-2 py-0.5 rounded-full border-0 cursor-pointer ${STATUS_COLORS[a.status] || 'bg-gray-100 text-gray-600'}`}
@@ -397,29 +439,54 @@ function ApplicationsTab({ initial }: { initial: Application[] }) {
             </div>
 
             <div className="p-6 flex flex-col gap-5">
-              {/* Section 1: ข้อมูลส่วนบุคคล */}
-              <Section title="ข้อมูลส่วนบุคคล" step="1">
-                <Row2 label="ชื่อ-นามสกุล" value={`${detail.prefix}${detail.firstname} ${detail.lastname}`} label2="ชื่อเล่น" value2={detail.nickname} />
+              {/* Section 1: ผู้เรียนคนที่ 1 */}
+              <Section title="ผู้เรียนคนที่ 1" step="1">
+                <Row2 label="ชื่อ-นามสกุล (TH)" value={`${detail.prefix||''}${detail.firstname||''} ${detail.lastname||''}`} label2="ชื่อเล่น" value2={detail.nickname} />
+                {(detail.firstname_en || detail.lastname_en) && (
+                  <Row2 label="Name (EN)" value={`${detail.prefix_en||''}${detail.firstname_en||''} ${detail.lastname_en||''}`} label2="Nickname" value2={detail.nickname_en} />
+                )}
                 <Row2 label="วันเกิด" value={[detail.birth_day, detail.birth_month, detail.birth_year].filter(Boolean).join(' ') || '—'} label2="เลขบัตรประชาชน" value2={detail.id_card} />
                 <Row2 label="เบอร์โทร" value={detail.phone} label2="อีเมล" value2={detail.email} />
                 <Row2 label="Facebook" value={detail.facebook} label2="LINE ID" value2={detail.line_id} />
               </Section>
 
-              {/* Section 2: ข้อมูลธุรกิจ */}
+              {/* Section 2: ผู้เรียนคนที่ 2 (optional) */}
+              {detail.p2_firstname && (
+                <Section title="ผู้เรียนคนที่ 2" step="1">
+                  <Row2 label="ชื่อ-นามสกุล (TH)" value={`${detail.p2_prefix||''}${detail.p2_firstname||''} ${detail.p2_lastname||''}`} label2="ชื่อเล่น" value2={detail.p2_nickname} />
+                  {(detail.p2_firstname_en || detail.p2_lastname_en) && (
+                    <Row2 label="Name (EN)" value={`${detail.p2_prefix_en||''}${detail.p2_firstname_en||''} ${detail.p2_lastname_en||''}`} label2="Nickname" value2={detail.p2_nickname_en} />
+                  )}
+                  <Row2 label="วันเกิด" value={[detail.p2_birth_day, detail.p2_birth_month, detail.p2_birth_year].filter(Boolean).join(' ') || '—'} label2="เลขบัตรประชาชน" value2={detail.p2_id_card} />
+                  <Row2 label="เบอร์โทร" value={detail.p2_phone} label2="อีเมล" value2={detail.p2_email} />
+                  <Row2 label="Facebook" value={detail.p2_facebook} label2="LINE ID" value2={detail.p2_line_id} />
+                </Section>
+              )}
+
+              {/* Section 3: ข้อมูลธุรกิจ */}
               <Section title="ข้อมูลธุรกิจ" step="2">
-                <Row1 label="ชื่อธุรกิจ / แบรนด์" value={detail.business_name} />
+                <Row2 label="ชื่อธุรกิจ / แบรนด์" value={detail.business_name} label2="ชื่อนิติบุคคล" value2={detail.business_company} />
+                {(detail.business_branch || detail.business_address) && (
+                  <Row2 label="สาขา" value={detail.business_branch} label2="ที่อยู่" value2={detail.business_address} />
+                )}
+                {(detail.business_taxid || detail.business_phone) && (
+                  <Row2 label="เลขภาษี" value={detail.business_taxid} label2="เบอร์ธุรกิจ" value2={detail.business_phone} />
+                )}
                 <Row2 label="ประเภทธุรกิจ" value={detail.business_type} label2="อายุธุรกิจ" value2={detail.business_age} />
                 <Row2 label="รายได้ต่อปี" value={detail.revenue} label2="จำนวนพนักงาน" value2={detail.employees} />
-                <Row1 label="เว็บไซต์ / โซเชียล" value={detail.website} />
+                {detail.website && <Row1 label="เว็บไซต์ / โซเชียล" value={detail.website} />}
                 <Row1 label="ความท้าทายหลักของธุรกิจ" value={detail.challenges} long />
+                {detail.doc_delivery && (
+                  <Row2 label="รับเอกสารที่" value={detail.doc_delivery} label2="ที่อยู่สำรอง" value2={detail.doc_alt_address} />
+                )}
               </Section>
 
-              {/* Section 3: ข้อมูลอื่นๆ */}
+              {/* Section 4: ข้อมูลอื่นๆ */}
               <Section title="ข้อมูลอื่นๆ" step="3">
                 <Row1 label="รู้จัก GREAT to GROWTH จาก" value={detail.referral} />
                 <Row1 label="เหตุผลที่อยากเข้าร่วม" value={detail.reason} long />
                 <Row1 label="สิ่งที่คาดหวังจากโปรแกรม" value={detail.expectation} long />
-                <Row1 label="หมายเหตุ / คำถามเพิ่มเติม" value={detail.note} long />
+                {detail.note && <Row1 label="หมายเหตุ / คำถามเพิ่มเติม" value={detail.note} long />}
               </Section>
 
               {/* Status actions */}
