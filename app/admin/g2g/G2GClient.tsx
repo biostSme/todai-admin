@@ -120,16 +120,7 @@ function SettingsTab({ init }: { init: Settings }) {
           </div>
           <input ref={pdfRef} type="file" accept=".pdf,application/pdf" className="hidden"
             onChange={e => e.target.files?.[0] && uploadBrochure(e.target.files[0])} />
-          <p className="text-[10px] text-gray-400 mt-1.5">หรือวาง URL ไฟล์โดยตรง:</p>
-          <input
-            type="url"
-            className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400"
-            value={s.brochure_url ?? ''}
-            placeholder="https://..."
-            onChange={e => setS(p => ({ ...p, brochure_url: e.target.value }))}
-          />
         </div>
-        {field('line_url', 'LINE URL (ปุ่มดาวน์โหลดโบรชัวร์นำไปที่นี่)', 'url', 'https://line.me/...')}
       </div>
       <div className="bg-white rounded-xl border border-gray-100 p-5 flex flex-col gap-4">
         <h3 className="text-sm font-semibold text-gray-700">ราคา & ชำระเงิน</h3>
