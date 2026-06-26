@@ -49,6 +49,7 @@ const nav: NavItem[] = [
 
   // ── บทความ & Content ──
   { section: 'บทความ & Content' },
+  { href: '/admin/team', label: 'ทีมงานที่ปรึกษา (CONS)', icon: UserCircle },
   {
     group: 'บทความ & เนื้อหาเว็บ', icon: PenLine, color: '#9F5FDD',
     children: [
