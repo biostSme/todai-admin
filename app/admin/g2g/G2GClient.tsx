@@ -1,7 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Upload, Plus, Trash2, Edit2, Save, X, Download, ExternalLink, Check, CreditCard } from 'lucide-react'
+import { Upload, Plus, Trash2, Edit2, Save, X, Download, ExternalLink, Check, CreditCard, FileText } from 'lucide-react'
 
 type Settings = Record<string, string>
 type Speaker = { id: number; name_th: string; name_en: string; role_th: string; role_en: string; org_th: string; org_en: string; bio_th: string; bio_en: string; avatar_url: string; sort_order: number }
@@ -52,7 +52,23 @@ function SettingsTab({ init }: { init: Settings }) {
   const [s, setS] = useState(init)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [uploadingPdf, setUploadingPdf] = useState(false)
+  const pdfRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+
+  async function uploadBrochure(file: File) {
+    setUploadingPdf(true)
+    const fd = new FormData(); fd.append('file', file); fd.append('folder', 'brochures')
+    const res = await fetch('/api/upload', { method: 'POST', body: fd })
+    const { url } = await res.json()
+    setUploadingPdf(false)
+    if (url) {
+      const next = { ...s, brochure_url: url }
+      setS(next)
+      await fetch('/api/g2g-settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(next) })
+      router.refresh()
+    }
+  }
 
   async function save() {
     setSaving(true)
@@ -85,12 +101,34 @@ function SettingsTab({ init }: { init: Settings }) {
       </div>
       <div className="bg-white rounded-xl border border-gray-100 p-5 flex flex-col gap-4">
         <h3 className="text-sm font-semibold text-gray-700">โบรชัวร์ & LINE</h3>
-        {field('brochure_url', 'URL โบรชัวร์ (Cloudinary หรือ link ไฟล์ PDF)', 'url', 'https://...')}
-        {s.brochure_url && (
-          <a href={s.brochure_url} target="_blank" rel="noopener" className="flex items-center gap-1 text-xs text-orange-500 hover:underline">
-            <ExternalLink size={12} /> ดูโบรชัวร์ปัจจุบัน
-          </a>
-        )}
+        <div>
+          <label className="block text-xs text-gray-500 mb-2">ไฟล์โบรชัวร์ (PDF)</label>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => pdfRef.current?.click()}
+              disabled={uploadingPdf}
+              className="flex items-center gap-1.5 px-3 py-2 border border-dashed border-orange-300 rounded-lg text-xs text-orange-600 hover:bg-orange-50 disabled:opacity-50 transition-colors"
+            >
+              <Upload size={13} /> {uploadingPdf ? 'กำลังอัพโหลด…' : 'อัพโหลด PDF'}
+            </button>
+            {s.brochure_url && (
+              <a href={s.brochure_url} target="_blank" rel="noopener" className="flex items-center gap-1 text-xs text-green-600 hover:underline">
+                <FileText size={12} /> ดูไฟล์ปัจจุบัน
+              </a>
+            )}
+          </div>
+          <input ref={pdfRef} type="file" accept=".pdf,application/pdf" className="hidden"
+            onChange={e => e.target.files?.[0] && uploadBrochure(e.target.files[0])} />
+          <p className="text-[10px] text-gray-400 mt-1.5">หรือวาง URL ไฟล์โดยตรง:</p>
+          <input
+            type="url"
+            className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400"
+            value={s.brochure_url ?? ''}
+            placeholder="https://..."
+            onChange={e => setS(p => ({ ...p, brochure_url: e.target.value }))}
+          />
+        </div>
         {field('line_url', 'LINE URL (ปุ่มดาวน์โหลดโบรชัวร์นำไปที่นี่)', 'url', 'https://line.me/...')}
       </div>
       <div className="bg-white rounded-xl border border-gray-100 p-5 flex flex-col gap-4">
