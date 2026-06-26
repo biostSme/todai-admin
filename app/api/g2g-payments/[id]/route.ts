@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 
+export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const { rows } = await db.query(`SELECT * FROM g2g_payments WHERE id=$1`, [id])
+  if (!rows.length) return NextResponse.json({ error: 'not found' }, { status: 404 })
+  return NextResponse.json(rows[0])
+}
+
 // Manual confirm (bank transfer)
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

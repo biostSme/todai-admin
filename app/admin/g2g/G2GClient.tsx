@@ -81,6 +81,29 @@ function SettingsTab({ init }: { init: Settings }) {
         )}
         {field('line_url', 'LINE URL (ปุ่มดาวน์โหลดโบรชัวร์นำไปที่นี่)', 'url', 'https://line.me/...')}
       </div>
+      <div className="bg-white rounded-xl border border-gray-100 p-5 flex flex-col gap-4">
+        <h3 className="text-sm font-semibold text-gray-700">ราคา & ชำระเงิน</h3>
+        {field('g2g_price', 'ราคาค่าลงทะเบียน (บาท)', 'text', 'เช่น 200000')}
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">ธนาคาร</label>
+          <input
+            type="text"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400"
+            value={s.bank_name ?? ''}
+            placeholder="เช่น กสิกรไทย"
+            onChange={e => setS(p => ({ ...p, bank_name: e.target.value }))}
+          />
+        </div>
+        {field('bank_account_name', 'ชื่อบัญชี', 'text', 'เช่น บริษัท แบรนด์ดิ้ง แอนด์ คอมพะนีส์ จำกัด')}
+        {field('bank_account_no', 'เลขบัญชี', 'text', 'เช่น 123-4-56789-0')}
+      </div>
+      <div className="bg-white rounded-xl border border-gray-100 p-5 flex flex-col gap-4">
+        <h3 className="text-sm font-semibold text-gray-700">รูปตารางกิจกรรม</h3>
+        {field('schedule_img_url', 'URL รูปตารางกิจกรรม (แทนที่ปฏิทิน)', 'url', 'https://...')}
+        {s.schedule_img_url && (
+          <img src={s.schedule_img_url} alt="schedule preview" className="rounded-lg border border-gray-100 max-h-40 object-cover" />
+        )}
+      </div>
       <button
         onClick={save}
         disabled={saving}
