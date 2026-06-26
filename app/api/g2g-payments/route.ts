@@ -73,8 +73,18 @@ export async function POST(req: NextRequest) {
       )
       chargeId = charge.id
       chargeStatus = charge.status
-      qrImage = charge.source?.scannable_code?.image?.download_uri || null
       chargeAuthorizeUri = charge.authorize_uri || null
+
+      // Proxy QR image — download_uri requires Omise Basic Auth, browsers can't load it directly
+      const qrDownloadUri = charge.source?.scannable_code?.image?.download_uri || null
+      if (qrDownloadUri) {
+        try {
+          const basicAuth = Buffer.from(`${process.env.OMISE_SECRET_KEY}:`).toString('base64')
+          const imgRes = await fetch(qrDownloadUri, { headers: { Authorization: `Basic ${basicAuth}` } })
+          const svgText = await imgRes.text()
+          qrImage = `data:image/svg+xml;base64,${Buffer.from(svgText).toString('base64')}`
+        } catch { qrImage = null }
+      }
     }
   }
 
