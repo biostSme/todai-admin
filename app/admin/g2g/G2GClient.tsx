@@ -128,9 +128,25 @@ function SettingsTab({ init }: { init: Settings }) {
               </a>
             )}
           </div>
-          {pdfError && <p className="text-xs text-red-500 mt-1">{pdfError}</p>}
+          {pdfError && (
+            <div className="mt-2 p-2.5 bg-red-50 rounded-lg border border-red-100">
+              <p className="text-xs text-red-600 font-medium">อัพโหลดไม่สำเร็จ — ไฟล์ใหญ่เกิน 10MB</p>
+              <p className="text-xs text-red-400 mt-0.5">กรุณาอัพโหลดไฟล์ขึ้น Google Drive แล้ววาง link ด้านล่างแทน</p>
+            </div>
+          )}
           <input ref={pdfRef} type="file" accept="application/pdf" className="hidden"
             onChange={e => e.target.files?.[0] && uploadBrochure(e.target.files[0])} />
+          <div className="mt-3">
+            <label className="block text-xs text-gray-400 mb-1">หรือวาง Google Drive / link ตรง:</label>
+            <input
+              type="url"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400"
+              value={s.brochure_url ?? ''}
+              placeholder="https://drive.google.com/..."
+              onChange={e => setS(p => ({ ...p, brochure_url: e.target.value }))}
+            />
+            <p className="text-[10px] text-gray-400 mt-1">วาง link แล้วกด "บันทึกการตั้งค่า" ด้านล่าง</p>
+          </div>
         </div>
       </div>
       <div className="bg-white rounded-xl border border-gray-100 p-5 flex flex-col gap-4">
