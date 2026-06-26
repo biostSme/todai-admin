@@ -53,20 +53,30 @@ function SettingsTab({ init }: { init: Settings }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [uploadingPdf, setUploadingPdf] = useState(false)
+  const [pdfError, setPdfError] = useState('')
   const pdfRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
   async function uploadBrochure(file: File) {
     setUploadingPdf(true)
-    const fd = new FormData(); fd.append('file', file); fd.append('folder', 'brochures')
-    const res = await fetch('/api/upload', { method: 'POST', body: fd })
-    const { url } = await res.json()
-    setUploadingPdf(false)
-    if (url) {
-      const next = { ...s, brochure_url: url }
+    setPdfError('')
+    try {
+      const fd = new FormData(); fd.append('file', file); fd.append('folder', 'brochures')
+      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!data.url) throw new Error(data.error || 'ไม่ได้รับ URL จาก Cloudinary')
+      const next = { ...s, brochure_url: data.url }
       setS(next)
-      await fetch('/api/g2g-settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(next) })
-      router.refresh()
+      await fetch('/api/g2g-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brochure_url: data.url }),
+      })
+    } catch (e: any) {
+      setPdfError(e.message || 'อัพโหลดไม่สำเร็จ')
+    } finally {
+      setUploadingPdf(false)
+      if (pdfRef.current) pdfRef.current.value = ''
     }
   }
 
@@ -103,7 +113,7 @@ function SettingsTab({ init }: { init: Settings }) {
         <h3 className="text-sm font-semibold text-gray-700">โบรชัวร์ & LINE</h3>
         <div>
           <label className="block text-xs text-gray-500 mb-2">ไฟล์โบรชัวร์ (PDF)</label>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <button
               type="button"
               onClick={() => pdfRef.current?.click()}
@@ -112,13 +122,14 @@ function SettingsTab({ init }: { init: Settings }) {
             >
               <Upload size={13} /> {uploadingPdf ? 'กำลังอัพโหลด…' : 'อัพโหลด PDF'}
             </button>
-            {s.brochure_url && (
+            {s.brochure_url && !pdfError && (
               <a href={s.brochure_url} target="_blank" rel="noopener" className="flex items-center gap-1 text-xs text-green-600 hover:underline">
                 <FileText size={12} /> ดูไฟล์ปัจจุบัน
               </a>
             )}
           </div>
-          <input ref={pdfRef} type="file" accept=".pdf,application/pdf" className="hidden"
+          {pdfError && <p className="text-xs text-red-500 mt-1">{pdfError}</p>}
+          <input ref={pdfRef} type="file" accept="application/pdf" className="hidden"
             onChange={e => e.target.files?.[0] && uploadBrochure(e.target.files[0])} />
         </div>
       </div>
