@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "todai-admin",
+      "runtimeExecutable": "/Users/test/node20/bin/node",
+      "runtimeArgs": ["/Users/test/Documents/Claude/BRANDi/todai-admin-vercel/node_modules/next/dist/bin/next", "dev", "--port", "3001"],
+      "port": 3001
+    }
+  ]
+}

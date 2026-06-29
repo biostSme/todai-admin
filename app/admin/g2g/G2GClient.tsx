@@ -158,12 +158,13 @@ function SettingsTab({ init }: { init: Settings }) {
             type="text"
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400"
             value={s.bank_name ?? ''}
-            placeholder="เช่น กสิกรไทย"
+            placeholder="เช่น ไทยพาณิชย์"
             onChange={e => setS(p => ({ ...p, bank_name: e.target.value }))}
           />
         </div>
-        {field('bank_account_name', 'ชื่อบัญชี', 'text', 'เช่น บริษัท แบรนด์ดิ้ง แอนด์ คอมพะนีส์ จำกัด')}
-        {field('bank_account_no', 'เลขบัญชี', 'text', 'เช่น 123-4-56789-0')}
+        {field('bank_branch', 'สาขา', 'text', 'เช่น สาขาถนนแจ้งวัฒนะ')}
+        {field('bank_account_name', 'ชื่อบัญชี', 'text', 'เช่น บริษัท ไบออสต์ จำกัด')}
+        {field('bank_account_no', 'เลขบัญชี', 'text', 'เช่น 324-403094-6')}
       </div>
       <div className="bg-white rounded-xl border border-gray-100 p-5 flex flex-col gap-4">
         <h3 className="text-sm font-semibold text-gray-700">รูปตารางกิจกรรม</h3>
@@ -568,7 +569,7 @@ type Payment = {
   id: number; application_id: number; base_amount: number; coupon_code: string | null
   discount_amount: number; wht: boolean; wht_amount: number; final_amount: number
   method: string; omise_charge_id: string | null; status: string; paid_at: string | null
-  email_sent: boolean; created_at: string
+  email_sent: boolean; created_at: string; slip_url?: string | null
   firstname?: string; lastname?: string; business_name?: string; email?: string
 }
 
@@ -658,6 +659,7 @@ function PaymentsTab({ initial }: { initial: Payment[] }) {
             <th className="text-left px-4 py-2.5 text-gray-500 font-medium">WHT</th>
             <th className="text-left px-4 py-2.5 text-gray-500 font-medium">วิธีจ่าย</th>
             <th className="text-left px-4 py-2.5 text-gray-500 font-medium">สถานะ</th>
+            <th className="text-left px-4 py-2.5 text-gray-500 font-medium">สลิป</th>
             <th className="text-left px-4 py-2.5 text-gray-500 font-medium">ส่งเมล</th>
             <th className="text-left px-4 py-2.5 text-gray-500 font-medium">วันที่</th>
             <th className="px-4 py-2.5"></th>
@@ -675,6 +677,14 @@ function PaymentsTab({ initial }: { initial: Payment[] }) {
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${PAY_STATUS[p.status]?.color || 'bg-gray-100 text-gray-500'}`}>
                     {PAY_STATUS[p.status]?.label || p.status}
                   </span>
+                </td>
+                <td className="px-4 py-2.5">
+                  {p.slip_url
+                    ? <a href={p.slip_url} target="_blank" rel="noopener" className="flex items-center gap-1">
+                        <img src={p.slip_url} alt="สลิป" className="w-8 h-8 object-cover rounded border border-gray-200" />
+                        <span className="text-[10px] text-blue-500 hover:underline">ดู</span>
+                      </a>
+                    : <span className="text-gray-300 text-xs">—</span>}
                 </td>
                 <td className="px-4 py-2.5">
                   {p.email_sent
