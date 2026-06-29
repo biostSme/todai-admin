@@ -1,3 +1,5 @@
+import { INSTALLMENT_FEE_RATES, InstallmentBank } from './installment-config'
+
 export const G2G_BASE = 200_000
 export const DEPOSIT_FIXED = 50_000
 export const VAT_RATE = 0.07
@@ -11,7 +13,8 @@ export const FEE_RATES: Record<string, number> = {
 export interface G2GCalcInput {
   coupon_discount?: number   // fixed baht discount applied to base (server-validated)
   wht?: boolean
-  method: 'card' | 'promptpay' | 'transfer'
+  method: 'card' | 'promptpay' | 'transfer' | 'installment'
+  installment_bank?: InstallmentBank
   is_deposit?: boolean
 }
 
@@ -38,7 +41,9 @@ export function calcG2G(input: G2GCalcInput): G2GCalcResult {
   const gross = effective_base + vat
   const wht_amount = input.wht ? Math.round(effective_base * WHT_RATE) : 0
   const net = gross - wht_amount
-  const fee_rate = FEE_RATES[input.method] ?? 0
+  const fee_rate = input.method === 'installment'
+    ? (input.installment_bank ? INSTALLMENT_FEE_RATES[input.installment_bank] : 0)
+    : (FEE_RATES[input.method] ?? 0)
   const is_deposit = !!input.is_deposit
   const charge_now = is_deposit ? DEPOSIT_FIXED : net
   const charge_with_fee = Math.ceil(charge_now * (1 + fee_rate))

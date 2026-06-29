@@ -20,18 +20,28 @@ type BankSettings = {
   bank_account_no: string
 }
 
+type InstallmentBankOption = { id: string; label: string; source_type: string }
+type InstallmentConfig = {
+  banks: readonly InstallmentBankOption[]
+  terms: Record<string, number[]>
+  feeRates: Record<string, number>
+}
+
 const FEE_RATES: Record<string, number> = { card: 0.0365, promptpay: 0.0165, transfer: 0 }
 
 export default function PayRemainingClient({
-  payment, omisePublicKey, bankSettings,
+  payment, omisePublicKey, installmentConfig, bankSettings,
 }: {
   payment: PaymentInfo
   omisePublicKey: string
+  installmentConfig: InstallmentConfig
   bankSettings: BankSettings
 }) {
-  const [method, setMethod] = useState<'transfer' | 'card' | 'promptpay'>('transfer')
+  const [method, setMethod] = useState<'transfer' | 'card' | 'promptpay' | 'installment'>('transfer')
   const [cardToken, setCardToken] = useState<string | null>(null)
   const [cardReady, setCardReady] = useState(false)
+  const [installmentBank, setInstallmentBank] = useState<string | null>(null)
+  const [installmentTerm, setInstallmentTerm] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState<{ method: string; qr_image?: string; charge_amount: number } | null>(null)
   const [qrStatus, setQrStatus] = useState<'pending' | 'paid' | 'expired'>('pending')
@@ -39,7 +49,9 @@ export default function PayRemainingClient({
   const [slipStatus, setSlipStatus] = useState('')
   const [error, setError] = useState('')
 
-  const feeRate = FEE_RATES[method] || 0
+  const feeRate = method === 'installment'
+    ? (installmentBank ? installmentConfig.feeRates[installmentBank] || 0 : 0)
+    : (FEE_RATES[method] || 0)
   const chargeAmount = Math.ceil(payment.remaining_amount * (1 + feeRate))
   const fmt = (n: number) => n.toLocaleString('th-TH')
 
@@ -84,13 +96,20 @@ export default function PayRemainingClient({
 
   async function submitPayment() {
     if (method === 'card' && !cardToken) { alert('กรุณากดกรอกข้อมูลบัตรก่อน'); return }
+    if (method === 'installment' && (!installmentBank || !installmentTerm)) {
+      alert('กรุณาเลือกธนาคารและจำนวนเดือนผ่อนชำระก่อน')
+      return
+    }
     setLoading(true)
     setError('')
     try {
       const res = await fetch(`/api/g2g-payments/${payment.id}/pay-remaining`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ method, token_or_source: cardToken }),
+        body: JSON.stringify({
+          method, token_or_source: cardToken,
+          installment_bank: installmentBank, installment_term: installmentTerm,
+        }),
       })
       const text = await res.text()
       let d: any
@@ -126,10 +145,14 @@ export default function PayRemainingClient({
     }
   }
 
-  const methodCard = (val: 'transfer' | 'card' | 'promptpay', label: string, sub: string) => (
+  const methodCard = (val: 'transfer' | 'card' | 'promptpay' | 'installment', label: string, sub: string) => (
     <button
       type="button"
-      onClick={() => { setMethod(val); if (val !== 'card') { setCardToken(null); setCardReady(false) } }}
+      onClick={() => {
+        setMethod(val)
+        if (val !== 'card') { setCardToken(null); setCardReady(false) }
+        if (val !== 'installment') { setInstallmentBank(null); setInstallmentTerm(null) }
+      }}
       className={`flex-1 border-2 rounded-xl p-3 text-center transition-colors ${method === val ? 'border-orange-400 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}
     >
       <p className={`font-semibold text-sm ${method === val ? 'text-orange-600' : 'text-gray-700'}`}>{label}</p>
@@ -236,6 +259,7 @@ export default function PayRemainingClient({
           {methodCard('transfer', 'โอนธนาคาร', 'ฟรีค่าธรรมเนียม')}
           {methodCard('card', 'บัตรเครดิต', '+3.65%')}
           {methodCard('promptpay', 'QR PromptPay', '+1.65%')}
+          {methodCard('installment', 'ผ่อนชำระ', installmentBank ? `+${(installmentConfig.feeRates[installmentBank] * 100).toFixed(2)}%` : 'บัตรเครดิต')}
         </div>
 
         {/* Charge total */}
@@ -243,7 +267,11 @@ export default function PayRemainingClient({
           <span className="text-sm text-gray-600">ยอดที่ชำระ</span>
           <div className="text-right">
             <span className="text-xl font-bold text-orange-500">฿{fmt(chargeAmount)}</span>
-            {feeRate > 0 && <p className="text-xs text-gray-400">รวมค่า gateway {(feeRate * 100).toFixed(2)}%</p>}
+            {method === 'installment' && installmentTerm ? (
+              <p className="text-xs text-gray-400">ผ่อน {installmentTerm} เดือน × ฿{fmt(Math.ceil(chargeAmount / installmentTerm))}/เดือน (รวมค่าธรรมเนียม {(feeRate * 100).toFixed(2)}%)</p>
+            ) : feeRate > 0 && (
+              <p className="text-xs text-gray-400">รวมค่า gateway {(feeRate * 100).toFixed(2)}%</p>
+            )}
           </div>
         </div>
 
@@ -262,6 +290,42 @@ export default function PayRemainingClient({
               >
                 กรอกข้อมูลบัตรเครดิต / เดบิต
               </button>
+            )}
+          </div>
+        )}
+
+        {/* Installment bank + term selector */}
+        {method === 'installment' && (
+          <div className="mb-4">
+            <p className="text-xs text-gray-500 mb-2">เลือกธนาคาร</p>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              {installmentConfig.banks.map(b => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => { setInstallmentBank(b.id); setInstallmentTerm(null) }}
+                  className={`border-2 rounded-xl p-2.5 text-center transition-colors ${installmentBank === b.id ? 'border-orange-400 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}
+                >
+                  <p className={`text-xs font-semibold ${installmentBank === b.id ? 'text-orange-600' : 'text-gray-700'}`}>{b.label}</p>
+                </button>
+              ))}
+            </div>
+            {installmentBank && (
+              <>
+                <p className="text-xs text-gray-500 mb-2">จำนวนเดือนผ่อน</p>
+                <div className="flex flex-wrap gap-2">
+                  {(installmentConfig.terms[installmentBank] || []).map(t => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setInstallmentTerm(t)}
+                      className={`border-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${installmentTerm === t ? 'border-orange-400 bg-orange-50 text-orange-600' : 'border-gray-200 text-gray-700 hover:border-gray-300'}`}
+                    >
+                      {t} เดือน
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}

@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import db from '@/lib/db'
 import PayRemainingClient from './PayRemainingClient'
+import { INSTALLMENT_BANKS, INSTALLMENT_TERMS, INSTALLMENT_FEE_RATES } from '@/lib/installment-config'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,6 +63,11 @@ export default async function PayRemainingPage({ params }: { params: Promise<{ i
         original_method: p.method,
       }}
       omisePublicKey={omisePublicKey}
+      installmentConfig={{
+        banks: INSTALLMENT_BANKS,
+        terms: INSTALLMENT_TERMS,
+        feeRates: INSTALLMENT_FEE_RATES,
+      }}
       bankSettings={{
         bank_name: settings.bank_name || 'ไทยพาณิชย์',
         bank_branch: settings.bank_branch || 'สาขาถนนแจ้งวัฒนะ',

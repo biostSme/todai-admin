@@ -572,6 +572,8 @@ type Payment = {
   method: string; omise_charge_id: string | null; status: string; paid_at: string | null
   is_deposit?: boolean; deposit_amount?: number; remaining_amount?: number
   remaining_status?: string | null; remaining_paid_at?: string | null; remaining_method?: string | null
+  installment_bank?: string | null; installment_term?: number | null
+  remaining_installment_bank?: string | null; remaining_installment_term?: number | null
   email_sent: boolean; created_at: string; slip_url?: string | null
   firstname?: string; lastname?: string; business_name?: string; email?: string
 }
@@ -587,7 +589,14 @@ const REM_STATUS: Record<string, { label: string; color: string }> = {
   paid:    { label: 'ครบ',                 color: 'bg-green-100 text-green-700' },
   failed:  { label: 'ล้มเหลว',             color: 'bg-red-100 text-red-700' },
 }
-const METHOD_LABEL: Record<string, string> = { card: 'บัตร', promptpay: 'PromptPay', transfer: 'โอน', bank: 'โอน' }
+const METHOD_LABEL: Record<string, string> = { card: 'บัตร', promptpay: 'PromptPay', transfer: 'โอน', bank: 'โอน', installment: 'ผ่อนชำระ' }
+const INSTALLMENT_BANK_LABEL: Record<string, string> = { kbank: 'กสิกรไทย', ktc: 'กรุงไทย', scb: 'ไทยพาณิชย์', first_choice: 'เฟิร์สช้อยส์' }
+function methodDisplay(method: string, bank?: string | null, term?: number | null) {
+  if (method === 'installment' && bank && term) {
+    return `ผ่อน ${term} ด. (${INSTALLMENT_BANK_LABEL[bank] || bank})`
+  }
+  return METHOD_LABEL[method] || method
+}
 
 function PaymentsTab({ initial }: { initial: Payment[] }) {
   const [payments, setPayments] = useState(initial)
@@ -614,7 +623,7 @@ function PaymentsTab({ initial }: { initial: Payment[] }) {
     const rows = filtered.map(p =>
       [`${p.firstname||''} ${p.lastname||''}`, p.business_name, p.email,
        p.base_amount, p.discount_amount, p.wht ? p.wht_amount : 0, p.final_amount,
-       p.coupon_code || '', METHOD_LABEL[p.method] || p.method,
+       p.coupon_code || '', methodDisplay(p.method, p.installment_bank, p.installment_term),
        PAY_STATUS[p.status]?.label || p.status,
        p.paid_at ? new Date(p.paid_at).toLocaleDateString('th-TH') : '']
        .map(v => `"${v ?? ''}"`).join(',')
@@ -682,7 +691,7 @@ function PaymentsTab({ initial }: { initial: Payment[] }) {
                 </td>
                 <td className="px-4 py-2.5 text-orange-600 font-mono">{p.coupon_code || '—'}</td>
                 <td className="px-4 py-2.5 text-gray-500">{p.wht ? `−${fmt(p.wht_amount)}` : '—'}</td>
-                <td className="px-4 py-2.5 text-gray-500">{METHOD_LABEL[p.method] || p.method}</td>
+                <td className="px-4 py-2.5 text-gray-500">{methodDisplay(p.method, p.installment_bank, p.installment_term)}</td>
                 <td className="px-4 py-2.5">
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${PAY_STATUS[p.status]?.color || 'bg-gray-100 text-gray-500'}`}>
                     {PAY_STATUS[p.status]?.label || p.status}

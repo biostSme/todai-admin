@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import { getOmise, isOmiseConfigured } from '@/lib/omise'
 import { calcG2G } from '@/lib/g2g-calc'
+import { isInstallmentBank, installmentSourceType, INSTALLMENT_TERMS } from '@/lib/installment-config'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,11 +45,26 @@ export async function POST(req: NextRequest) {
       await db.query(`UPDATE coupons SET used_count = used_count + 1 WHERE code=$1`, [c.code])
     }
 
+    // Installment is full-payment-only, and bank/term must be validated server-side
+    const installmentBank = d.installment_bank
+    if (d.method === 'installment') {
+      if (d.is_deposit) {
+        return NextResponse.json({ error: 'ผ่อนชำระใช้ได้กับการจ่ายเต็มจำนวนเท่านั้น' }, { status: 400 })
+      }
+      if (!isInstallmentBank(installmentBank)) {
+        return NextResponse.json({ error: 'ธนาคารผ่อนชำระไม่ถูกต้อง' }, { status: 400 })
+      }
+      if (!INSTALLMENT_TERMS[installmentBank].includes(Number(d.installment_term))) {
+        return NextResponse.json({ error: 'จำนวนเดือนผ่อนชำระไม่ถูกต้อง' }, { status: 400 })
+      }
+    }
+
     // 2. Server-side calculation — never trust client amounts
     const calc = calcG2G({
       coupon_discount,
       wht: !!d.wht,
       method: d.method,
+      installment_bank: d.method === 'installment' ? d.installment_bank : undefined,
       is_deposit: !!d.is_deposit,
     })
 
@@ -62,11 +78,11 @@ export async function POST(req: NextRequest) {
     let chargeAuthorizeUri: string | null = null
     let failureMessage: string | null = null
 
-    if ((d.method === 'card' || d.method === 'promptpay') && !isOmiseConfigured()) {
+    if ((d.method === 'card' || d.method === 'promptpay' || d.method === 'installment') && !isOmiseConfigured()) {
       return NextResponse.json({ error: 'Omise ยังไม่ได้ตั้งค่า — ไม่สามารถรับชำระเงินได้' }, { status: 503 })
     }
 
-    if (d.method === 'card' || d.method === 'promptpay') {
+    if (d.method === 'card' || d.method === 'promptpay' || d.method === 'installment') {
       const omise = getOmise()
       const desc = `G2G รุ่น ${d.batch_number || '?'} — ${d.applicant_name || ''}${calc.is_deposit ? ' (มัดจำ)' : ''}`
 
@@ -118,6 +134,30 @@ export async function POST(req: NextRequest) {
             qrImage = `data:image/svg+xml;base64,${Buffer.from(svgText).toString('base64')}`
           } catch { qrImage = null }
         }
+
+      } else if (d.method === 'installment') {
+        const source = await new Promise<any>((resolve, reject) =>
+          omise.sources.create({
+            amount: chargeSatang,
+            currency: 'thb',
+            type: installmentSourceType(d.installment_bank),
+            installment_term: Number(d.installment_term),
+          }, (err: any, res: any) => err ? reject(err) : resolve(res))
+        )
+        sourceId = source.id
+        const charge = await new Promise<any>((resolve, reject) =>
+          omise.charges.create({
+            amount: chargeSatang,
+            currency: 'thb',
+            source: sourceId,
+            description: desc,
+            metadata: { application_id: d.application_id },
+            return_uri: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://todai-admin.vercel.app'}/payment/complete`,
+          }, (err: any, res: any) => err ? reject(err) : resolve(res))
+        )
+        chargeId = charge.id
+        chargeStatus = charge.status
+        chargeAuthorizeUri = charge.authorize_uri || null
       }
       // transfer: no Omise call, status stays 'pending'
     }
@@ -129,8 +169,8 @@ export async function POST(req: NextRequest) {
         effective_base, vat_amount, gross_amount, wht, wht_amount,
         net_amount, fee_rate, charge_amount, final_amount,
         method, is_deposit, deposit_amount, remaining_amount,
-        omise_charge_id, omise_source_id, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+        omise_charge_id, omise_source_id, status, installment_bank, installment_term)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
        RETURNING *`,
       [
         d.application_id,
@@ -140,6 +180,8 @@ export async function POST(req: NextRequest) {
         d.method, calc.is_deposit, calc.is_deposit ? 50_000 : null,
         calc.is_deposit ? calc.remaining : null,
         chargeId, sourceId, chargeStatus,
+        d.method === 'installment' ? d.installment_bank : null,
+        d.method === 'installment' ? Number(d.installment_term) : null,
       ]
     )
 

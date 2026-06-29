@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import { getOmise, isOmiseConfigured } from '@/lib/omise'
 import { FEE_RATES } from '@/lib/g2g-calc'
+import { isInstallmentBank, installmentSourceType, installmentFeeRate, INSTALLMENT_TERMS } from '@/lib/installment-config'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,7 +10,16 @@ export const dynamic = 'force-dynamic'
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const { method, token_or_source, confirm_manual } = await req.json()
+    const { method, token_or_source, confirm_manual, installment_bank, installment_term } = await req.json()
+
+    if (method === 'installment') {
+      if (!isInstallmentBank(installment_bank)) {
+        return NextResponse.json({ error: 'ธนาคารผ่อนชำระไม่ถูกต้อง' }, { status: 400 })
+      }
+      if (!INSTALLMENT_TERMS[installment_bank].includes(Number(installment_term))) {
+        return NextResponse.json({ error: 'จำนวนเดือนผ่อนชำระไม่ถูกต้อง' }, { status: 400 })
+      }
+    }
 
     // Admin manual confirm for bank transfer remaining
     if (confirm_manual && method === 'transfer') {
@@ -28,7 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (p.remaining_status === 'paid') return NextResponse.json({ error: 'remaining already paid' }, { status: 400 })
 
     const remaining = Number(p.remaining_amount)
-    const fee_rate = FEE_RATES[method] ?? 0
+    const fee_rate = method === 'installment' ? installmentFeeRate(installment_bank) : (FEE_RATES[method] ?? 0)
     const charge_with_fee = Math.ceil(remaining * (1 + fee_rate))
     const chargeSatang = charge_with_fee * 100
 
@@ -38,11 +48,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     let chargeAuthorizeUri: string | null = null
     let failureMessage: string | null = null
 
-    if ((method === 'card' || method === 'promptpay') && !isOmiseConfigured()) {
+    if ((method === 'card' || method === 'promptpay' || method === 'installment') && !isOmiseConfigured()) {
       return NextResponse.json({ error: 'Omise ยังไม่ได้ตั้งค่า — ไม่สามารถรับชำระเงินได้' }, { status: 503 })
     }
 
-    if (method === 'card' || method === 'promptpay') {
+    if (method === 'card' || method === 'promptpay' || method === 'installment') {
       const omise = getOmise()
       const desc = `G2G — ยอดคงเหลือ payment #${id}`
 
@@ -80,6 +90,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             qrImage = `data:image/svg+xml;base64,${Buffer.from(await res.text()).toString('base64')}`
           } catch { qrImage = null }
         }
+
+      } else if (method === 'installment') {
+        const source = await new Promise<any>((resolve, reject) =>
+          omise.sources.create({
+            amount: chargeSatang, currency: 'thb',
+            type: installmentSourceType(installment_bank),
+            installment_term: Number(installment_term),
+          }, (e: any, r: any) => e ? reject(e) : resolve(r))
+        )
+        const charge = await new Promise<any>((resolve, reject) =>
+          omise.charges.create({
+            amount: chargeSatang, currency: 'thb', source: source.id, description: desc,
+            metadata: { g2g_payment_id: id, type: 'remaining' },
+            return_uri: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://todai-admin.vercel.app'}/payment/complete`,
+          }, (e: any, r: any) => e ? reject(e) : resolve(r))
+        )
+        chargeId = charge.id
+        chargeStatus = charge.status
+        chargeAuthorizeUri = charge.authorize_uri || null
       }
       // transfer: no Omise call
     }
@@ -89,9 +118,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       `UPDATE g2g_payments SET
          remaining_status=$1, remaining_paid_at=$2,
          remaining_omise_charge_id=$3, remaining_method=$4,
-         remaining_charge_amount=$5
-       WHERE id=$6`,
-      [chargeStatus, paid ? new Date() : null, chargeId, method, charge_with_fee, id]
+         remaining_charge_amount=$5, remaining_installment_bank=$6, remaining_installment_term=$7
+       WHERE id=$8`,
+      [
+        chargeStatus, paid ? new Date() : null, chargeId, method, charge_with_fee,
+        method === 'installment' ? installment_bank : null,
+        method === 'installment' ? Number(installment_term) : null,
+        id,
+      ]
     )
 
     return NextResponse.json({

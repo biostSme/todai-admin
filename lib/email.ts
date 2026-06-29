@@ -204,8 +204,17 @@ export type PaymentEmailData = {
   finalAmount: number
   couponCode?: string
   method: string
+  installmentBank?: string
+  installmentTerm?: number
   paymentId: number
   paidAt: string
+}
+
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  card: 'บัตรเครดิต/เดบิต', promptpay: 'PromptPay QR', transfer: 'โอนธนาคาร',
+}
+const INSTALLMENT_BANK_EMAIL_LABEL: Record<string, string> = {
+  kbank: 'กสิกรไทย', ktc: 'กรุงไทย (KTC)', scb: 'ไทยพาณิชย์', first_choice: 'กรุงศรี เฟิร์สช้อยส์',
 }
 
 export async function sendPaymentConfirmationEmail(data: PaymentEmailData) {
@@ -214,7 +223,9 @@ export async function sendPaymentConfirmationEmail(data: PaymentEmailData) {
     return
   }
 
-  const methodLabel = data.method === 'card' ? 'บัตรเครดิต/เดบิต' : 'PromptPay QR'
+  const methodLabel = data.method === 'installment'
+    ? `ผ่อนชำระ ${data.installmentTerm || ''} เดือน (${INSTALLMENT_BANK_EMAIL_LABEL[data.installmentBank || ''] || data.installmentBank || ''})`
+    : PAYMENT_METHOD_LABEL[data.method] || data.method
   const fmt = (n: number) => n.toLocaleString('th-TH')
 
   const html = `

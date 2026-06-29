@@ -59,6 +59,8 @@ export async function POST(req: NextRequest) {
       finalAmount: Number(payment.final_amount),
       couponCode: payment.coupon_code || undefined,
       method: payment.method,
+      installmentBank: payment.installment_bank || undefined,
+      installmentTerm: payment.installment_term || undefined,
       paymentId: payment.id,
       paidAt: paidAtFormatted,
     })
