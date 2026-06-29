@@ -104,6 +104,8 @@ export default function PayRemainingClient({
       setDone({ method, qr_image: d.qr_image || undefined, charge_amount: d.charge_amount || chargeAmount })
     } catch (e: any) {
       setError(e.message)
+      // Card tokens are single-use — never retry with a stale/possibly-consumed token
+      if (method === 'card') { setCardToken(null); setCardReady(false) }
     } finally {
       setLoading(false)
     }
