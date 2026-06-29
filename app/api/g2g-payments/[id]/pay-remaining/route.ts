@@ -9,7 +9,16 @@ export const dynamic = 'force-dynamic'
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const { method, token_or_source } = await req.json()
+    const { method, token_or_source, confirm_manual } = await req.json()
+
+    // Admin manual confirm for bank transfer remaining
+    if (confirm_manual && method === 'transfer') {
+      await db.query(
+        `UPDATE g2g_payments SET remaining_status='paid', remaining_paid_at=NOW(), remaining_method='transfer' WHERE id=$1`,
+        [id]
+      )
+      return NextResponse.json({ ok: true, charge_status: 'paid' })
+    }
 
     const { rows } = await db.query(`SELECT * FROM g2g_payments WHERE id=$1`, [id])
     if (!rows.length) return NextResponse.json({ error: 'not found' }, { status: 404 })

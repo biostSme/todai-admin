@@ -568,7 +568,10 @@ function ApplicationsTab({ initial }: { initial: Application[] }) {
 type Payment = {
   id: number; application_id: number; base_amount: number; coupon_code: string | null
   discount_amount: number; wht: boolean; wht_amount: number; final_amount: number
+  net_amount?: number; charge_amount?: number
   method: string; omise_charge_id: string | null; status: string; paid_at: string | null
+  is_deposit?: boolean; deposit_amount?: number; remaining_amount?: number
+  remaining_status?: string | null; remaining_paid_at?: string | null; remaining_method?: string | null
   email_sent: boolean; created_at: string; slip_url?: string | null
   firstname?: string; lastname?: string; business_name?: string; email?: string
 }
@@ -579,7 +582,12 @@ const PAY_STATUS: Record<string, { label: string; color: string }> = {
   failed:  { label: 'ล้มเหลว',  color: 'bg-red-100 text-red-700' },
   expired: { label: 'หมดอายุ',  color: 'bg-gray-100 text-gray-500' },
 }
-const METHOD_LABEL: Record<string, string> = { card: 'บัตร', promptpay: 'PromptPay', bank: 'โอน' }
+const REM_STATUS: Record<string, { label: string; color: string }> = {
+  pending: { label: 'รอชำระส่วนที่เหลือ', color: 'bg-amber-100 text-amber-700' },
+  paid:    { label: 'ครบ',                 color: 'bg-green-100 text-green-700' },
+  failed:  { label: 'ล้มเหลว',             color: 'bg-red-100 text-red-700' },
+}
+const METHOD_LABEL: Record<string, string> = { card: 'บัตร', promptpay: 'PromptPay', transfer: 'โอน', bank: 'โอน' }
 
 function PaymentsTab({ initial }: { initial: Payment[] }) {
   const [payments, setPayments] = useState(initial)
@@ -659,17 +667,19 @@ function PaymentsTab({ initial }: { initial: Payment[] }) {
             <th className="text-left px-4 py-2.5 text-gray-500 font-medium">WHT</th>
             <th className="text-left px-4 py-2.5 text-gray-500 font-medium">วิธีจ่าย</th>
             <th className="text-left px-4 py-2.5 text-gray-500 font-medium">สถานะ</th>
+            <th className="text-left px-4 py-2.5 text-gray-500 font-medium">มัดจำ / ส่วนที่เหลือ</th>
             <th className="text-left px-4 py-2.5 text-gray-500 font-medium">สลิป</th>
-            <th className="text-left px-4 py-2.5 text-gray-500 font-medium">ส่งเมล</th>
             <th className="text-left px-4 py-2.5 text-gray-500 font-medium">วันที่</th>
             <th className="px-4 py-2.5"></th>
           </tr></thead>
           <tbody>
             {filtered.map(p => (
-              <tr key={p.id} className="border-t border-gray-50 hover:bg-gray-50">
+              <tr key={p.id} className={`border-t border-gray-50 hover:bg-gray-50 ${p.is_deposit && p.remaining_status !== 'paid' ? 'bg-amber-50/40' : ''}`}>
                 <td className="px-4 py-2.5 font-medium text-gray-800">{p.firstname} {p.lastname}</td>
                 <td className="px-4 py-2.5 text-gray-500">{p.business_name}</td>
-                <td className="px-4 py-2.5 text-right font-semibold text-gray-800">{fmt(p.final_amount)}</td>
+                <td className="px-4 py-2.5 text-right font-semibold text-gray-800">
+                  {fmt(Number(p.net_amount || p.final_amount))}
+                </td>
                 <td className="px-4 py-2.5 text-orange-600 font-mono">{p.coupon_code || '—'}</td>
                 <td className="px-4 py-2.5 text-gray-500">{p.wht ? `−${fmt(p.wht_amount)}` : '—'}</td>
                 <td className="px-4 py-2.5 text-gray-500">{METHOD_LABEL[p.method] || p.method}</td>
@@ -679,6 +689,22 @@ function PaymentsTab({ initial }: { initial: Payment[] }) {
                   </span>
                 </td>
                 <td className="px-4 py-2.5">
+                  {p.is_deposit ? (
+                    <div className="flex flex-col gap-1">
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-medium w-fit">
+                        มัดจำ ฿{fmt(p.deposit_amount || 50000)}
+                      </span>
+                      {p.remaining_status ? (
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium w-fit ${REM_STATUS[p.remaining_status]?.color || 'bg-gray-100 text-gray-500'}`}>
+                          {REM_STATUS[p.remaining_status]?.label} {p.remaining_status !== 'paid' ? `฿${fmt(p.remaining_amount || 0)}` : ''}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-amber-600">คงเหลือ ฿{fmt(p.remaining_amount || 0)}</span>
+                      )}
+                    </div>
+                  ) : <span className="text-gray-300">—</span>}
+                </td>
+                <td className="px-4 py-2.5">
                   {p.slip_url
                     ? <a href={p.slip_url} target="_blank" rel="noopener" className="flex items-center gap-1">
                         <img src={p.slip_url} alt="สลิป" className="w-8 h-8 object-cover rounded border border-gray-200" />
@@ -686,24 +712,50 @@ function PaymentsTab({ initial }: { initial: Payment[] }) {
                       </a>
                     : <span className="text-gray-300 text-xs">—</span>}
                 </td>
-                <td className="px-4 py-2.5">
-                  {p.email_sent
-                    ? <span className="text-green-600">✓</span>
-                    : <span className="text-gray-300">—</span>}
-                </td>
                 <td className="px-4 py-2.5 text-gray-400 whitespace-nowrap">
                   {p.paid_at ? new Date(p.paid_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) : fmtDate(p.created_at)}
                 </td>
                 <td className="px-4 py-2.5">
-                  {p.status === 'pending' && (
-                    <button onClick={() => confirmPayment(p.id)} className="flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 rounded text-[10px] font-medium hover:bg-green-100 whitespace-nowrap">
-                      <Check size={10} /> Confirm
-                    </button>
-                  )}
+                  <div className="flex flex-col gap-1 items-start">
+                    {p.status === 'pending' && (
+                      <button onClick={() => confirmPayment(p.id)} className="flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 rounded text-[10px] font-medium hover:bg-green-100 whitespace-nowrap">
+                        <Check size={10} /> Confirm
+                      </button>
+                    )}
+                    {p.is_deposit && p.remaining_status !== 'paid' && (
+                      <button
+                        onClick={() => {
+                          const url = `${window.location.origin}/pay/${p.id}`
+                          navigator.clipboard.writeText(url)
+                            .then(() => alert('คัดลอก link แล้ว!\n' + url))
+                            .catch(() => prompt('Copy link นี้:', url))
+                        }}
+                        className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-medium hover:bg-blue-100 whitespace-nowrap"
+                      >
+                        <ExternalLink size={10} /> Copy link
+                      </button>
+                    )}
+                    {p.is_deposit && p.remaining_status === 'pending' && p.remaining_method === 'transfer' && (
+                      <button
+                        onClick={async () => {
+                          if (!window.confirm('ยืนยันการชำระส่วนที่เหลือ?')) return
+                          await fetch(`/api/g2g-payments/${p.id}/pay-remaining`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ method: 'transfer', confirm_manual: true }),
+                          })
+                          router.refresh()
+                        }}
+                        className="flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 rounded text-[10px] font-medium hover:bg-green-100 whitespace-nowrap"
+                      >
+                        <Check size={10} /> Confirm ส่วนที่เหลือ
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
-            {!filtered.length && <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400">ยังไม่มีรายการชำระเงิน</td></tr>}
+            {!filtered.length && <tr><td colSpan={11} className="px-4 py-8 text-center text-gray-400">ยังไม่มีรายการชำระเงิน</td></tr>}
           </tbody>
         </table>
       </div>
