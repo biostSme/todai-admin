@@ -327,6 +327,9 @@ export default function PayRemainingClient({
                 </div>
               </>
             )}
+            <p className="text-xs text-amber-600 mt-3 flex items-start gap-1.5">
+              <span>ⓘ</span> เมื่อกด &quot;ชำระเงิน&quot; ระบบจะพาคุณไปยังหน้าเว็บของธนาคารเพื่อกรอกข้อมูลบัตรเครดิตและยืนยัน OTP
+            </p>
           </div>
         )}
 
