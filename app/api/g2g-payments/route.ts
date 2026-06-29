@@ -2,17 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import { getOmise, isOmiseConfigured } from '@/lib/omise'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
-  const { rows } = await db.query(
-    `SELECT p.*, a.firstname, a.lastname, a.business_name, a.email
-     FROM g2g_payments p
-     LEFT JOIN g2g_applications a ON a.id = p.application_id
-     ORDER BY p.created_at DESC`
-  )
-  return NextResponse.json(rows)
+  try {
+    const { rows } = await db.query(
+      `SELECT p.*, a.firstname, a.lastname, a.business_name, a.email
+       FROM g2g_payments p
+       LEFT JOIN g2g_applications a ON a.id = p.application_id
+       ORDER BY p.created_at DESC`
+    )
+    return NextResponse.json(rows)
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
 }
 
 export async function POST(req: NextRequest) {
+  try {
   const d = await req.json()
   // d: { application_id, base_amount, coupon_code, discount_amount, wht, wht_amount, final_amount, method, token_or_source }
 
@@ -103,4 +110,8 @@ export async function POST(req: NextRequest) {
     authorize_uri: chargeAuthorizeUri,
     charge_status: chargeStatus,
   })
+  } catch (err: any) {
+    console.error('[g2g-payments POST]', err)
+    return NextResponse.json({ error: err.message || 'Internal error' }, { status: 500 })
+  }
 }
