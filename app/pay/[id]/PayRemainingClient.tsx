@@ -83,6 +83,10 @@ export default function PayRemainingClient({
   function openCardForm() {
     const OmiseCard = (window as any).OmiseCard
     if (!OmiseCard) { alert('กำลังโหลด Omise กรุณารอสักครู่'); return }
+    if (method === 'installment' && (!installmentBank || !installmentTerm)) {
+      alert('กรุณาเลือกธนาคารและจำนวนเดือนผ่อนชำระก่อน')
+      return
+    }
     OmiseCard.configure({ publicKey: omisePublicKey, frameLabel: 'BRANDi · GREAT to GROWTH', submitLabel: 'บันทึกข้อมูลบัตร', currency: 'THB' })
     OmiseCard.open({
       amount: chargeAmount * 100,
@@ -100,6 +104,7 @@ export default function PayRemainingClient({
       alert('กรุณาเลือกธนาคารและจำนวนเดือนผ่อนชำระก่อน')
       return
     }
+    if (method === 'installment' && !cardToken) { alert('กรุณากดกรอกข้อมูลบัตรก่อน'); return }
     setLoading(true)
     setError('')
     try {
@@ -124,7 +129,7 @@ export default function PayRemainingClient({
     } catch (e: any) {
       setError(e.message)
       // Card tokens are single-use — never retry with a stale/possibly-consumed token
-      if (method === 'card') { setCardToken(null); setCardReady(false) }
+      if (method === 'card' || method === 'installment') { setCardToken(null); setCardReady(false) }
     } finally {
       setLoading(false)
     }
@@ -313,7 +318,7 @@ export default function PayRemainingClient({
             {installmentBank && (
               <>
                 <p className="text-xs text-gray-500 mb-2">จำนวนเดือนผ่อน</p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 mb-3">
                   {(installmentConfig.terms[installmentBank] || []).map(t => (
                     <button
                       key={t}
@@ -327,8 +332,23 @@ export default function PayRemainingClient({
                 </div>
               </>
             )}
+            {installmentBank && installmentTerm && (
+              cardReady ? (
+                <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700">
+                  <span>✓</span> บันทึกข้อมูลบัตรแล้ว — พร้อมชำระ
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openCardForm}
+                  className="w-full border-2 border-dashed border-orange-300 rounded-xl py-3 text-sm font-medium text-orange-500 hover:border-orange-400 hover:bg-orange-50 transition-colors"
+                >
+                  กรอกข้อมูลบัตรเครดิต / เดบิต
+                </button>
+              )
+            )}
             <p className="text-xs text-amber-600 mt-3 flex items-start gap-1.5">
-              <span>ⓘ</span> เมื่อกด &quot;ชำระเงิน&quot; ระบบจะพาคุณไปยังหน้าเว็บของธนาคารเพื่อกรอกข้อมูลบัตรเครดิตและยืนยัน OTP
+              <span>ⓘ</span> เมื่อกรอกข้อมูลบัตรแล้วกด &quot;ชำระเงิน&quot; ระบบจะพาคุณไปยังหน้าเว็บของธนาคารเพื่อยืนยัน OTP
             </p>
           </div>
         )}

@@ -57,6 +57,9 @@ export async function POST(req: NextRequest) {
       if (!INSTALLMENT_TERMS[installmentBank].includes(Number(d.installment_term))) {
         return NextResponse.json({ error: 'จำนวนเดือนผ่อนชำระไม่ถูกต้อง' }, { status: 400 })
       }
+      if (!d.token_or_source) {
+        return NextResponse.json({ error: 'กรุณากรอกข้อมูลบัตรเครดิตก่อน' }, { status: 400 })
+      }
     }
 
     // 2. Server-side calculation — never trust client amounts
@@ -150,6 +153,7 @@ export async function POST(req: NextRequest) {
             amount: chargeSatang,
             currency: 'thb',
             source: sourceId,
+            card: d.token_or_source,
             description: desc,
             metadata: { application_id: d.application_id },
             return_uri: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://todai-admin.vercel.app'}/payment/complete`,
@@ -158,6 +162,7 @@ export async function POST(req: NextRequest) {
         chargeId = charge.id
         chargeStatus = charge.status
         chargeAuthorizeUri = charge.authorize_uri || null
+        failureMessage = charge.failure_message || null
       }
       // transfer: no Omise call, status stays 'pending'
     }

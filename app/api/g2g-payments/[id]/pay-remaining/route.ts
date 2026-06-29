@@ -19,6 +19,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (!INSTALLMENT_TERMS[installment_bank].includes(Number(installment_term))) {
         return NextResponse.json({ error: 'จำนวนเดือนผ่อนชำระไม่ถูกต้อง' }, { status: 400 })
       }
+      if (!token_or_source) {
+        return NextResponse.json({ error: 'กรุณากรอกข้อมูลบัตรเครดิตก่อน' }, { status: 400 })
+      }
     }
 
     // Admin manual confirm for bank transfer remaining
@@ -101,7 +104,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         )
         const charge = await new Promise<any>((resolve, reject) =>
           omise.charges.create({
-            amount: chargeSatang, currency: 'thb', source: source.id, description: desc,
+            amount: chargeSatang, currency: 'thb', source: source.id, card: token_or_source, description: desc,
             metadata: { g2g_payment_id: id, type: 'remaining' },
             return_uri: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://todai-admin.vercel.app'}/payment/complete`,
           }, (e: any, r: any) => e ? reject(e) : resolve(r))
@@ -109,6 +112,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         chargeId = charge.id
         chargeStatus = charge.status
         chargeAuthorizeUri = charge.authorize_uri || null
+        failureMessage = charge.failure_message || null
       }
       // transfer: no Omise call
     }
