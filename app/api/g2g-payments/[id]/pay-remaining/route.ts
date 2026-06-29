@@ -38,9 +38,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     let chargeAuthorizeUri: string | null = null
     let failureMessage: string | null = null
 
-    if (!isOmiseConfigured()) {
-      chargeStatus = 'paid'
-    } else {
+    if ((method === 'card' || method === 'promptpay') && !isOmiseConfigured()) {
+      return NextResponse.json({ error: 'Omise ยังไม่ได้ตั้งค่า — ไม่สามารถรับชำระเงินได้' }, { status: 503 })
+    }
+
+    if (method === 'card' || method === 'promptpay') {
       const omise = getOmise()
       const desc = `G2G — ยอดคงเหลือ payment #${id}`
 

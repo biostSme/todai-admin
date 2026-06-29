@@ -62,10 +62,11 @@ export async function POST(req: NextRequest) {
     let chargeAuthorizeUri: string | null = null
     let failureMessage: string | null = null
 
-    if (!isOmiseConfigured()) {
-      console.warn('Omise not configured — mock payment')
-      chargeStatus = 'paid'
-    } else {
+    if ((d.method === 'card' || d.method === 'promptpay') && !isOmiseConfigured()) {
+      return NextResponse.json({ error: 'Omise ยังไม่ได้ตั้งค่า — ไม่สามารถรับชำระเงินได้' }, { status: 503 })
+    }
+
+    if (d.method === 'card' || d.method === 'promptpay') {
       const omise = getOmise()
       const desc = `G2G รุ่น ${d.batch_number || '?'} — ${d.applicant_name || ''}${calc.is_deposit ? ' (มัดจำ)' : ''}`
 

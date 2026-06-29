@@ -42,13 +42,20 @@ export async function POST(req: NextRequest) {
     if (order.status === 'paid') return NextResponse.json({ error: 'already paid' }, { status: 409 })
     if (order.seats_remaining <= 0) return NextResponse.json({ error: 'session is full' }, { status: 409 })
 
+    if ((method === 'card' || method === 'promptpay') && !isOmiseConfigured()) {
+      return NextResponse.json({ error: 'Omise ยังไม่ได้ตั้งค่า — ไม่สามารถรับชำระเงินได้' }, { status: 503 })
+    }
+    if ((method === 'card' || method === 'promptpay') && !token_or_source) {
+      return NextResponse.json({ error: 'token_or_source required' }, { status: 400 })
+    }
+
     const amountSatang = Math.round(Number(order.total_amount) * 100)
     let chargeId: string | null = null
-    let chargeStatus = 'paid'
+    let chargeStatus = 'pending'
     let qrImage: string | null = null
     let authorizeUri: string | null = null
 
-    if (isOmiseConfigured() && token_or_source) {
+    {
       const omise = getOmise()
 
       if (method === 'card') {
