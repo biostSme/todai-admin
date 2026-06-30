@@ -25,3 +25,16 @@ export async function verifyToken(token: string): Promise<boolean> {
 }
 
 export { COOKIE_NAME }
+
+// proxy.ts only protects /admin/:path* page routes — API routes are never
+// covered by it, so each admin-only API route must call this itself or it's
+// reachable by anyone on the internet with no login at all.
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function requireAdmin(req: NextRequest): Promise<NextResponse | null> {
+  const token = req.cookies.get(COOKIE_NAME)?.value
+  if (!token || !(await verifyToken(token))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  return null
+}

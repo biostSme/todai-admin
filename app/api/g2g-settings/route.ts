@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
 
 export async function GET() {
   const { rows } = await db.query(`SELECT key, value FROM g2g_settings`)
@@ -9,6 +10,9 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const d = await req.json()
   const entries = Object.entries(d) as [string, string][]
   for (const [key, value] of entries) {

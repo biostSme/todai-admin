@@ -574,8 +574,9 @@ type Payment = {
   remaining_status?: string | null; remaining_paid_at?: string | null; remaining_method?: string | null
   installment_bank?: string | null; installment_term?: number | null
   remaining_installment_bank?: string | null; remaining_installment_term?: number | null
-  email_sent: boolean; created_at: string; slip_url?: string | null
+  email_sent: boolean; created_at: string; slip_url?: string | null; remaining_slip_url?: string | null
   firstname?: string; lastname?: string; business_name?: string; email?: string
+  access_token?: string | null
 }
 
 const PAY_STATUS: Record<string, { label: string; color: string }> = {
@@ -701,7 +702,7 @@ function PaymentsTab({ initial }: { initial: Payment[] }) {
                   {p.is_deposit ? (
                     <div className="flex flex-col gap-1">
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-medium w-fit">
-                        มัดจำ ฿{fmt(p.deposit_amount || 50000)}
+                        มัดจำ ฿{fmt(p.deposit_amount ?? 50000)}
                       </span>
                       {p.remaining_status ? (
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium w-fit ${REM_STATUS[p.remaining_status]?.color || 'bg-gray-100 text-gray-500'}`}>
@@ -714,12 +715,20 @@ function PaymentsTab({ initial }: { initial: Payment[] }) {
                   ) : <span className="text-gray-300">—</span>}
                 </td>
                 <td className="px-4 py-2.5">
-                  {p.slip_url
-                    ? <a href={p.slip_url} target="_blank" rel="noopener" className="flex items-center gap-1">
-                        <img src={p.slip_url} alt="สลิป" className="w-8 h-8 object-cover rounded border border-gray-200" />
-                        <span className="text-[10px] text-blue-500 hover:underline">ดู</span>
+                  <div className="flex flex-col gap-1">
+                    {p.slip_url
+                      ? <a href={p.slip_url} target="_blank" rel="noopener" className="flex items-center gap-1">
+                          <img src={p.slip_url} alt="สลิปมัดจำ" className="w-8 h-8 object-cover rounded border border-gray-200" />
+                          <span className="text-[10px] text-blue-500 hover:underline">{p.is_deposit ? 'มัดจำ' : 'ดู'}</span>
+                        </a>
+                      : !p.remaining_slip_url && <span className="text-gray-300 text-xs">—</span>}
+                    {p.remaining_slip_url && (
+                      <a href={p.remaining_slip_url} target="_blank" rel="noopener" className="flex items-center gap-1">
+                        <img src={p.remaining_slip_url} alt="สลิปยอดคงเหลือ" className="w-8 h-8 object-cover rounded border border-gray-200" />
+                        <span className="text-[10px] text-blue-500 hover:underline">คงเหลือ</span>
                       </a>
-                    : <span className="text-gray-300 text-xs">—</span>}
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-2.5 text-gray-400 whitespace-nowrap">
                   {p.paid_at ? new Date(p.paid_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) : fmtDate(p.created_at)}
@@ -734,7 +743,7 @@ function PaymentsTab({ initial }: { initial: Payment[] }) {
                     {p.is_deposit && p.remaining_status !== 'paid' && (
                       <button
                         onClick={() => {
-                          const url = `${window.location.origin}/pay/${p.id}`
+                          const url = `${window.location.origin}/pay/${p.id}?token=${encodeURIComponent(p.access_token || '')}`
                           navigator.clipboard.writeText(url)
                             .then(() => alert('คัดลอก link แล้ว!\n' + url))
                             .catch(() => prompt('Copy link นี้:', url))

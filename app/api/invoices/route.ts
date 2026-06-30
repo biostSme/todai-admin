@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import pool from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
 // POST /api/invoices — Generate invoice for an order
 export async function POST(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   try {
     const { order_id, company_name, tax_id, address } = await req.json()
     if (!order_id) return NextResponse.json({ error: 'order_id required' }, { status: 400 })
@@ -37,6 +41,9 @@ export async function POST(req: NextRequest) {
 
 // GET /api/invoices?order_id=X or ?user_id=X
 export async function GET(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const { searchParams } = new URL(req.url)
   const order_id = searchParams.get('order_id')
   const user_id = searchParams.get('user_id')

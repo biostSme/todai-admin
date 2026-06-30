@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
 
 export async function GET() {
   const { rows } = await db.query(`SELECT * FROM alumni ORDER BY sort_order`)
@@ -7,6 +8,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const d = await req.json()
   const courses = Array.isArray(d.courses) ? d.courses : (d.courses ? String(d.courses).split(',').map((s:string)=>s.trim()) : [])
   const { rows } = await db.query(

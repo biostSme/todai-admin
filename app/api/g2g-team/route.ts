@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
 
 async function ensureTable() {
   await db.query(`
@@ -25,6 +26,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   await ensureTable()
   const d = await req.json()
   const { rows } = await db.query(

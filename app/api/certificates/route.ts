@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import pool from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
 import { put } from '@vercel/blob'
 import crypto from 'crypto'
 import { sendCertificateEmail } from '@/lib/email'
@@ -10,6 +11,9 @@ export const dynamic = 'force-dynamic'
 
 // POST /api/certificates — Issue certificate for enrollment
 export async function POST(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   try {
     const { enrollment_id } = await req.json()
     if (!enrollment_id) return NextResponse.json({ error: 'enrollment_id required' }, { status: 400 })

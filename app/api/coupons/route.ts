@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const { rows } = await db.query(`SELECT * FROM coupons ORDER BY created_at DESC`)
   return NextResponse.json(rows)
 }
 
 export async function POST(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const d = await req.json()
   const { rows } = await db.query(
     `INSERT INTO coupons (code, description, type, value, max_uses, expires_at, active)

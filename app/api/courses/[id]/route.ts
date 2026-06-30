@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const { id } = await params
   const d = await req.json()
   const mode_th = Array.isArray(d.mode_th) ? d.mode_th : (d.mode_th ? String(d.mode_th).split(',').map((s:string)=>s.trim()) : [])
@@ -20,7 +24,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   return NextResponse.json({ ok: true })
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const { id } = await params
   await db.query(`DELETE FROM courses WHERE id=$1`, [id])
   return NextResponse.json({ ok: true })

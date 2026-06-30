@@ -1,12 +1,20 @@
 import { notFound } from 'next/navigation'
+import { cookies } from 'next/headers'
 import db from '@/lib/db'
 import PayRemainingClient from './PayRemainingClient'
+import { verifyToken, COOKIE_NAME as ADMIN_COOKIE } from '@/lib/auth'
 import { INSTALLMENT_BANKS, INSTALLMENT_TERMS, INSTALLMENT_FEE_RATES } from '@/lib/installment-config'
 
 export const dynamic = 'force-dynamic'
 
-export default async function PayRemainingPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PayRemainingPage({
+  params, searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ token?: string }>
+}) {
   const { id } = await params
+  const { token } = await searchParams
 
   const { rows } = await db.query(
     `SELECT p.*, a.firstname, a.lastname, a.business_name
@@ -19,6 +27,13 @@ export default async function PayRemainingPage({ params }: { params: Promise<{ i
   if (!rows.length) notFound()
 
   const p = rows[0]
+
+  // This page used to be reachable by anyone who guessed the sequential payment
+  // id, exposing the customer's name/business/amount owed. Require either the
+  // per-payment access_token (sent in the link) or an admin session.
+  const adminCookie = (await cookies()).get(ADMIN_COOKIE)?.value
+  const isAdmin = adminCookie ? await verifyToken(adminCookie) : false
+  if (!isAdmin && (!p.access_token || token !== p.access_token)) notFound()
 
   if (!p.is_deposit) {
     return (
@@ -62,6 +77,7 @@ export default async function PayRemainingPage({ params }: { params: Promise<{ i
         coupon_code: p.coupon_code || null,
         original_method: p.method,
       }}
+      accessToken={p.access_token || ''}
       omisePublicKey={omisePublicKey}
       installmentConfig={{
         banks: INSTALLMENT_BANKS,

@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import pool from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const { id } = await params
   const { role } = await req.json()
   if (!['user', 'staff', 'admin'].includes(role)) {

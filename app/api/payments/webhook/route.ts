@@ -2,18 +2,31 @@ import { NextRequest, NextResponse } from 'next/server'
 import pool from '@/lib/db'
 import { redis, seatLockKey } from '@/lib/redis'
 import { sendEnrollmentConfirmationEmail } from '@/lib/email'
+import { getOmise, isOmiseConfigured } from '@/lib/omise'
 import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
 
 // POST /api/payments/webhook — Omise webhook for async charges (PromptPay)
+//
+// No signature verification here, and the customer's own browser already
+// receives their own charge id from the payment-creation response — so trusting
+// body.data.status (and even body.data.metadata.order_id) directly would let
+// anyone self-forge a webhook claiming their own unpaid order succeeded. Treat
+// the webhook purely as a "go check charge X" trigger and re-fetch the
+// authoritative charge (status + metadata) from Omise's API with our secret key.
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     if (body.key !== 'charge.complete') return NextResponse.json({ ok: true })
 
-    const charge = body.data
-    if (charge.status !== 'successful') return NextResponse.json({ ok: true })
+    const chargeId = body.data?.id
+    if (!chargeId || !isOmiseConfigured()) return NextResponse.json({ ok: true })
+
+    const charge = await new Promise<any>((resolve, reject) =>
+      getOmise().charges.retrieve(chargeId, (e: any, r: any) => e ? reject(e) : resolve(r))
+    ).catch(() => null)
+    if (!charge || charge.status !== 'successful') return NextResponse.json({ ok: true })
 
     const orderId = charge.metadata?.order_id
     if (!orderId) return NextResponse.json({ ok: true })
@@ -36,6 +49,19 @@ export async function POST(req: NextRequest) {
       [orderId]
     )
 
+    // Atomically claim a seat before enrolling — same overbooking gap as the
+    // synchronous /api/payments path: the old code created the enrollment first
+    // and only afterward clamped the seat counter, so it never actually blocked
+    // a second enrollment once the session was full.
+    const seatClaim = await pool.query(
+      `UPDATE course_sessions SET seats_remaining = seats_remaining - 1, updated_at = NOW()
+       WHERE id=$1 AND seats_remaining > 0 RETURNING id`,
+      [order.session_id]
+    )
+    if (!seatClaim.rows.length) {
+      console.error(`[payments/webhook] order ${orderId} paid but session ${order.session_id} is full — needs manual reconciliation`)
+    }
+
     // Create enrollment
     const qr_token = crypto.randomBytes(32).toString('hex')
     const { rows: enrRows } = await pool.query(
@@ -45,10 +71,6 @@ export async function POST(req: NextRequest) {
     )
 
     if (enrRows[0]) {
-      await pool.query(
-        'UPDATE course_sessions SET seats_remaining=GREATEST(seats_remaining-1,0),updated_at=NOW() WHERE id=$1',
-        [order.session_id]
-      )
       await redis.del(seatLockKey(order.session_id, String(order.user_id)))
 
       try {

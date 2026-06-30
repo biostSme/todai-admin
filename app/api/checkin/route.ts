@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import pool from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
 // POST /api/checkin — Staff scans QR token to check in
 export async function POST(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   try {
     const { qr_token, staff_id } = await req.json()
     if (!qr_token) return NextResponse.json({ error: 'qr_token required' }, { status: 400 })
@@ -35,6 +39,9 @@ export async function POST(req: NextRequest) {
 
 // GET /api/checkin?session_id=X — Attendance list
 export async function GET(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const session_id = new URL(req.url).searchParams.get('session_id')
   if (!session_id) return NextResponse.json({ error: 'session_id required' }, { status: 400 })
 

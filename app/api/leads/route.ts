@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const { rows } = await db.query(`SELECT * FROM leads ORDER BY created_at DESC`)
   return NextResponse.json(rows)
 }

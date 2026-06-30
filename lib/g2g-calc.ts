@@ -45,9 +45,11 @@ export function calcG2G(input: G2GCalcInput): G2GCalcResult {
     ? (input.installment_bank ? INSTALLMENT_FEE_RATES[input.installment_bank] : 0)
     : (FEE_RATES[input.method] ?? 0)
   const is_deposit = !!input.is_deposit
-  const charge_now = is_deposit ? DEPOSIT_FIXED : net
+  // Cap the deposit at the actual amount owed — otherwise a coupon that brings
+  // net below the fixed deposit would overcharge upfront and drive `remaining` negative.
+  const charge_now = is_deposit ? Math.min(DEPOSIT_FIXED, net) : net
   const charge_with_fee = Math.ceil(charge_now * (1 + fee_rate))
-  const remaining = is_deposit ? net - DEPOSIT_FIXED : 0
+  const remaining = is_deposit ? Math.max(0, net - DEPOSIT_FIXED) : 0
   const remaining_with_fee = remaining > 0 ? Math.ceil(remaining * (1 + fee_rate)) : 0
 
   return {

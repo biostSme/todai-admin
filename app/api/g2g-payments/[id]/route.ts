@@ -1,17 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
 import { sendPaymentConfirmationEmail } from '@/lib/email'
 
-export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const { rows } = await db.query(`SELECT * FROM g2g_payments WHERE id=$1`, [id])
   if (!rows.length) return NextResponse.json({ error: 'not found' }, { status: 404 })
-  return NextResponse.json(rows[0])
+  const payment = rows[0]
+  // Only deposit payments get an access_token (reachable via the standalone
+  // /pay/[id] link) — full payments are polled from the same session that just
+  // created them, so leave that path unauthenticated to avoid breaking it.
+  if (payment.access_token) {
+    const token = req.nextUrl.searchParams.get('token')
+    if (token !== payment.access_token) {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 403 })
+    }
+  }
+  return NextResponse.json(payment)
 }
 
 // Manual confirm (bank transfer) — transfer never goes through Omise, so it never
 // hits the charge.complete webhook; send the confirmation email here instead.
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const { id } = await params
   const d = await req.json()
   const { rows } = await db.query(
@@ -59,7 +73,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   return NextResponse.json(payment)
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const { id } = await params
   await db.query(`DELETE FROM g2g_payments WHERE id=$1`, [id])
   return NextResponse.json({ ok: true })

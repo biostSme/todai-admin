@@ -4,6 +4,18 @@ export function isEmailConfigured() {
   return !!(process.env.EMAIL_FROM && process.env.EMAIL_PASS)
 }
 
+// Names/titles/locations below come from user input (registration forms) and
+// are interpolated into HTML email bodies — must escape to avoid HTML injection.
+function esc(s: string | undefined | null): string {
+  if (s == null) return ''
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 // ─── Enrollment Confirmation ────────────────────────────────────────────────
 
 export type EnrollmentEmailData = {
@@ -32,16 +44,16 @@ export async function sendEnrollmentConfirmationEmail(data: EnrollmentEmailData)
     <div style="color:#fff;font-size:22px;font-weight:700">✅ ลงทะเบียนสำเร็จแล้ว!</div>
   </td></tr>
   <tr><td style="padding:36px 40px">
-    <p style="color:#374151;font-size:15px;margin:0 0 20px">สวัสดีคุณ <strong>${data.name}</strong></p>
+    <p style="color:#374151;font-size:15px;margin:0 0 20px">สวัสดีคุณ <strong>${esc(data.name)}</strong></p>
     <p style="color:#6B7280;font-size:14px;margin:0 0 28px;line-height:1.7">
       คุณได้ลงทะเบียนและชำระเงินสำเร็จแล้ว เราตั้งตารอพบคุณในวันอบรมนะคะ
     </p>
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:12px;border:1px solid #e5e7eb;margin-bottom:28px">
       <tr><td style="padding:20px 24px">
         <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9CA3AF;margin-bottom:16px">รายละเอียดการลงทะเบียน</div>
-        ${eRow('หลักสูตร', `<strong>${data.sessionTitle}</strong>`)}
+        ${eRow('หลักสูตร', `<strong>${esc(data.sessionTitle)}</strong>`)}
         ${eRow('วันที่อบรม', dateRange)}
-        ${data.location ? eRow('สถานที่', data.location) : ''}
+        ${data.location ? eRow('สถานที่', esc(data.location)) : ''}
         ${eRow('ยอดชำระ', `฿${fmt(data.amount)}`)}
         ${eRow('ช่องทางชำระ', methodLabel)}
         ${eRow('เลขที่คำสั่งซื้อ', `#${String(data.orderId).padStart(5,'0')}`)}
@@ -93,12 +105,12 @@ export async function sendReminderEmail(data: ReminderEmailData) {
     <div style="color:#fff;font-size:20px;font-weight:700">${emoji} ${headline}</div>
   </td></tr>
   <tr><td style="padding:36px 40px">
-    <p style="color:#374151;font-size:15px;margin:0 0 20px">สวัสดีคุณ <strong>${data.name}</strong></p>
+    <p style="color:#374151;font-size:15px;margin:0 0 20px">สวัสดีคุณ <strong>${esc(data.name)}</strong></p>
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFF7ED;border-radius:12px;border:1px solid #FED7AA;margin-bottom:24px">
       <tr><td style="padding:20px 24px">
-        <div style="font-size:16px;font-weight:700;color:#010C4A;margin-bottom:12px">${data.sessionTitle}</div>
+        <div style="font-size:16px;font-weight:700;color:#010C4A;margin-bottom:12px">${esc(data.sessionTitle)}</div>
         ${eRow('📅 วันที่', fmtDate(data.startDate))}
-        ${data.location ? eRow('📍 สถานที่', data.location) : ''}
+        ${data.location ? eRow('📍 สถานที่', esc(data.location)) : ''}
       </td></tr>
     </table>
     ${isD1 ? `
@@ -147,10 +159,10 @@ export async function sendCertificateEmail(data: CertEmailData) {
     <div style="color:#fff;font-size:22px;font-weight:700">Certificate ของคุณพร้อมแล้ว</div>
   </td></tr>
   <tr><td style="padding:36px 40px;text-align:center">
-    <p style="color:#374151;font-size:15px;margin:0 0 8px">คุณ <strong>${data.name}</strong></p>
+    <p style="color:#374151;font-size:15px;margin:0 0 8px">คุณ <strong>${esc(data.name)}</strong></p>
     <p style="color:#6B7280;font-size:14px;margin:0 0 28px;line-height:1.7">
       ได้รับ Certificate สำเร็จการอบรมหลักสูตร<br>
-      <strong style="color:#1B2559">${data.sessionTitle}</strong>
+      <strong style="color:#1B2559">${esc(data.sessionTitle)}</strong>
     </p>
     <div style="margin-bottom:24px">
       <a href="${data.pdfUrl}" style="display:inline-block;background:linear-gradient(125deg,#7C3AED,#4F46E5);color:#fff;font-weight:700;font-size:14px;padding:12px 28px;border-radius:100px;text-decoration:none;margin-bottom:12px">⬇️ ดาวน์โหลด Certificate</a>
@@ -246,7 +258,7 @@ export async function sendPaymentConfirmationEmail(data: PaymentEmailData) {
 
   <!-- Body -->
   <tr><td style="padding:36px 40px">
-    <p style="color:#374151;font-size:15px;margin:0 0 24px">สวัสดีคุณ <strong>${data.applicantName}</strong></p>
+    <p style="color:#374151;font-size:15px;margin:0 0 24px">สวัสดีคุณ <strong>${esc(data.applicantName)}</strong></p>
     <p style="color:#6B7280;font-size:14px;margin:0 0 28px;line-height:1.7">
       เราได้รับการชำระเงินของคุณเรียบร้อยแล้ว ขอบคุณที่สมัครเข้าร่วมโปรแกรม GREAT to GROWTH
       ทีมงานจะติดต่อกลับเพื่อยืนยันข้อมูลเพิ่มเติมและรายละเอียดโปรแกรมภายใน 2–3 วันทำการ
@@ -256,8 +268,8 @@ export async function sendPaymentConfirmationEmail(data: PaymentEmailData) {
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:12px;border:1px solid #e5e7eb;margin-bottom:28px">
       <tr><td style="padding:20px 24px">
         <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9CA3AF;margin-bottom:16px">รายละเอียดการชำระเงิน</div>
-        ${row('ชื่อ-นามสกุล', data.applicantName)}
-        ${row('ชื่อธุรกิจ', data.businessName)}
+        ${row('ชื่อ-นามสกุล', esc(data.applicantName))}
+        ${row('ชื่อธุรกิจ', esc(data.businessName))}
         ${row('โปรแกรม', `GREAT to GROWTH รุ่นที่ ${data.batchNumber}`)}
         ${row('ราคาปกติ', `${fmt(data.baseAmount)} บาท`)}
         ${data.discountAmount > 0 ? row('ส่วนลด' + (data.couponCode ? ` (${data.couponCode})` : ''), `− ${fmt(data.discountAmount)} บาท`, '#16A34A') : ''}

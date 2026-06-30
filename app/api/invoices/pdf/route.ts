@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import pool from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
 import { put } from '@vercel/blob'
 // @ts-ignore
 import PDFDocument from 'pdfkit'
@@ -7,6 +8,9 @@ import PDFDocument from 'pdfkit'
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   try {
     const { invoice_id } = await req.json()
     if (!invoice_id) return NextResponse.json({ error: 'invoice_id required' }, { status: 400 })

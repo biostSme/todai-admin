@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import pool from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
 import { redis, seatLockKey } from '@/lib/redis'
 import crypto from 'crypto'
 
@@ -29,11 +30,18 @@ export async function POST(req: NextRequest) {
     )
 
     if (rows[0]) {
-      // Decrement seats
-      await pool.query(
-        'UPDATE course_sessions SET seats_remaining = GREATEST(seats_remaining - 1, 0), updated_at = NOW() WHERE id = $1',
+      // Atomically claim a seat — see app/api/payments/route.ts for why this must
+      // happen as a conditional claim rather than an unconditional GREATEST clamp:
+      // the enrollment above is already created regardless, so without this check
+      // two concurrent enrollments for the same session's last seat would both succeed.
+      const seatClaim = await pool.query(
+        `UPDATE course_sessions SET seats_remaining = seats_remaining - 1, updated_at = NOW()
+         WHERE id=$1 AND seats_remaining > 0 RETURNING id`,
         [session_id]
       )
+      if (!seatClaim.rows.length) {
+        console.error(`[enrollments] order ${order_id} enrolled but session ${session_id} is full — needs manual reconciliation`)
+      }
       // Release Redis lock
       await redis.del(seatLockKey(session_id, String(user_id)))
     }
@@ -46,6 +54,9 @@ export async function POST(req: NextRequest) {
 
 // GET /api/enrollments?user_id=X or ?session_id=X
 export async function GET(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const { searchParams } = new URL(req.url)
   const user_id = searchParams.get('user_id')
   const session_id = searchParams.get('session_id')

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
 
 export async function GET() {
   const { rows } = await db.query(`SELECT * FROM articles ORDER BY sort_order ASC, created_at DESC`)
@@ -7,6 +8,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const d = await req.json()
   const isPublished = d.status === 'published'
   const { rows } = await db.query(

@@ -30,9 +30,10 @@ type InstallmentConfig = {
 const FEE_RATES: Record<string, number> = { card: 0.0365, promptpay: 0.0165, transfer: 0 }
 
 export default function PayRemainingClient({
-  payment, omisePublicKey, installmentConfig, bankSettings,
+  payment, accessToken, omisePublicKey, installmentConfig, bankSettings,
 }: {
   payment: PaymentInfo
+  accessToken: string
   omisePublicKey: string
   installmentConfig: InstallmentConfig
   bankSettings: BankSettings
@@ -72,7 +73,7 @@ export default function PayRemainingClient({
       elapsed += 5
       if (elapsed > 900) { clearInterval(timer); setQrStatus('expired'); return }
       try {
-        const r = await fetch(`/api/g2g-payments/${payment.id}`)
+        const r = await fetch(`/api/g2g-payments/${payment.id}?token=${encodeURIComponent(accessToken)}`)
         const d = await r.json()
         if (d.remaining_status === 'paid') { clearInterval(timer); setQrStatus('paid') }
       } catch {}
@@ -114,6 +115,7 @@ export default function PayRemainingClient({
         body: JSON.stringify({
           method, token_or_source: cardToken,
           installment_bank: installmentBank, installment_term: installmentTerm,
+          access_token: accessToken,
         }),
       })
       const text = await res.text()
@@ -139,6 +141,8 @@ export default function PayRemainingClient({
     setSlipStatus('กำลังอัปโหลด...')
     const fd = new FormData()
     fd.append('slip', file)
+    fd.append('type', 'remaining')
+    fd.append('access_token', accessToken)
     try {
       const res = await fetch(`/api/g2g-payments/${payment.id}/slip`, { method: 'POST', body: fd })
       const d = await res.json()

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
 
 export async function GET() {
   const { rows } = await db.query(`SELECT * FROM g2g_speakers ORDER BY sort_order, id`)
@@ -7,6 +8,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const d = await req.json()
   const { rows } = await db.query(
     `INSERT INTO g2g_speakers (name_th, name_en, role_th, role_en, org_th, org_en, bio_th, bio_en, avatar_url, sort_order)

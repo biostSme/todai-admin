@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import { sendPaymentConfirmationEmail } from '@/lib/email'
+import { getOmise, isOmiseConfigured } from '@/lib/omise'
 
 // Omise webhook — event: charge.complete
+//
+// This endpoint has no signature verification, and the customer's own browser
+// already receives their own omise_charge_id in the payment-creation response —
+// so blindly trusting body.data.status would let anyone self-forge a webhook
+// call claiming their own pending/declined payment succeeded, with zero special
+// knowledge required. Instead, treat the webhook purely as a "go check charge X"
+// trigger and re-fetch the authoritative status directly from Omise's API using
+// our secret key, which an attacker cannot forge.
 export async function POST(req: NextRequest) {
   const body = await req.json()
 
@@ -10,8 +19,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
-  const charge = body.data
-  if (!charge?.id) return NextResponse.json({ error: 'no charge' }, { status: 400 })
+  const chargeId = body.data?.id
+  if (!chargeId || !isOmiseConfigured()) return NextResponse.json({ error: 'no charge' }, { status: 400 })
+
+  const charge = await new Promise<any>((resolve, reject) =>
+    getOmise().charges.retrieve(chargeId, (e: any, r: any) => e ? reject(e) : resolve(r))
+  ).catch(() => null)
+  if (!charge) return NextResponse.json({ error: 'charge not found' }, { status: 400 })
 
   const status = charge.status === 'successful' ? 'paid' : 'failed'
   const paidAt = status === 'paid' ? new Date().toISOString() : null
@@ -23,7 +37,19 @@ export async function POST(req: NextRequest) {
     [status, paidAt, charge.id]
   )
 
-  if (!rows.length) return NextResponse.json({ ok: true })
+  if (!rows.length) {
+    // Not the initial payment — check whether this charge belongs to a
+    // deposit's remaining-balance payment instead (separate charge id column).
+    // Without this, PromptPay/installment/3DS-card remaining payments would
+    // get charged successfully but stay stuck showing "unpaid" forever, since
+    // nothing else ever confirms them asynchronously.
+    await db.query(
+      `UPDATE g2g_payments SET remaining_status=$1, remaining_paid_at=$2
+       WHERE remaining_omise_charge_id=$3 AND remaining_status='pending'`,
+      [status, paidAt, charge.id]
+    )
+    return NextResponse.json({ ok: true })
+  }
 
   const payment = rows[0]
 

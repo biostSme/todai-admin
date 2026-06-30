@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
 
 async function ensureColumns() {
   await db.query(`
@@ -35,7 +36,10 @@ async function ensureColumns() {
   `).catch(() => {})
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const { rows } = await db.query(`SELECT * FROM g2g_applications ORDER BY created_at DESC`)
   return NextResponse.json(rows)
 }
@@ -43,6 +47,26 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   await ensureColumns()
   const d = await req.json()
+
+  // Every field was previously optional (d.x || null) — a completely empty
+  // submission would create a valid application that could then immediately be
+  // paid for, leaving a "paid" registration with no name/email/phone to ever
+  // contact. These are the fields the payment confirmation email and any
+  // follow-up depend on.
+  const required = ['firstname', 'lastname', 'phone', 'email', 'id_card']
+  const missing = required.filter(k => !String(d[k] || '').trim())
+  if (missing.length) {
+    return NextResponse.json({ error: `กรุณากรอกข้อมูลให้ครบ: ${missing.join(', ')}` }, { status: 400 })
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(d.email).trim())) {
+    return NextResponse.json({ error: 'รูปแบบอีเมลไม่ถูกต้อง' }, { status: 400 })
+  }
+  // Mirrors the frontend's own pattern="[0-9]{13}" — already enforced client-side,
+  // this just closes the gap for anyone calling the API directly.
+  if (!/^[0-9]{13}$/.test(String(d.id_card).trim())) {
+    return NextResponse.json({ error: 'เลขบัตรประจำตัวประชาชนต้องเป็นตัวเลข 13 หลัก' }, { status: 400 })
+  }
+
   const { rows } = await db.query(
     `INSERT INTO g2g_applications
      (prefix, firstname, lastname, nickname,

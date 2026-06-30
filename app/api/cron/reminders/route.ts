@@ -7,7 +7,9 @@ export const dynamic = 'force-dynamic'
 // GET /api/cron/reminders — Called by Vercel Cron daily at 08:00
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Compare against undefined explicitly — if CRON_SECRET is ever unset, the naive
+  // template-string comparison becomes the literal, guessable "Bearer undefined".
+  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 

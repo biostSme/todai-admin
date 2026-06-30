@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import pool from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
 import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
@@ -25,6 +26,9 @@ export async function POST(req: NextRequest) {
 
 // GET /api/waitlist?session_id=X — Admin: view waitlist
 export async function GET(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const session_id = new URL(req.url).searchParams.get('session_id')
   if (!session_id) return NextResponse.json({ error: 'session_id required' }, { status: 400 })
   const { rows } = await pool.query(

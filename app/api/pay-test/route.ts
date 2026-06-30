@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getOmise, isOmiseConfigured } from '@/lib/omise'
+import { requireAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +14,9 @@ export const dynamic = 'force-dynamic'
  *   promptpay → { ok, charge_id, status, qr_image }
  */
 export async function POST(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   try {
     if (!isOmiseConfigured()) {
       return NextResponse.json({ error: 'Omise keys not configured' }, { status: 503 })

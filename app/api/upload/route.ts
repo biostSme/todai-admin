@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { v2 as cloudinary } from 'cloudinary'
+import { requireAdmin } from '@/lib/auth'
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -8,6 +9,9 @@ cloudinary.config({
 })
 
 export async function POST(req: NextRequest) {
+  const unauth = await requireAdmin(req)
+  if (unauth) return unauth
+
   const form = await req.formData()
   const file = form.get('file') as File | null
   const folder = (form.get('folder') as string) || 'misc'
